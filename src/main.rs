@@ -1,73 +1,67 @@
-pub mod props;
-pub mod component_normal;
-pub mod scalar;
-
-use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-pub type EID = u64; // 更好的语义：EID是一个编号，不能指代数量
+pub fn entropy(s: &[u8]) -> f32 {
+    let mut histogram = [0u64; 256];
 
-pub const WORLD_VERSION: [u8; 3] = [0, 0, 1];
+    for &b in s {
+        histogram[b as usize] += 1;
+    }
+
+    histogram
+        .iter()
+        .cloned()
+        .filter(|&h| h != 0)
+        .map(|h| h as f32 / s.len() as f32)
+        .map(|ratio| -ratio * ratio.log2())
+        .sum()
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct Item {
+    name: String,
+    id: usize,
+    mass: f64,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct Slot {
+    index: usize,
+    aisle: Vec<u64>,
+    data: [u8; 32],
+}
+impl Slot {
+    pub fn new(index: usize) -> Self {
+        let mut data = [0; 32];
+        data.iter_mut().for_each(|b| {
+            *b = rand::random::<u8>();
+        });
+
+        Slot {
+            index,
+            aisle: Vec::new(),
+            data,
+        }
+    }
+    pub fn get_entropy(&self) -> f32 {
+        entropy(&self.data)
+    }
+}
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct World {
-    entities: Vec<Entity>,
-    //save_model: Json
+    slots: Vec<Slot>,
 }
 impl World {
-    pub fn run(self) {}
-    pub fn spawn(&mut self) -> EID {
-        let len = self.entities.len() as u64;
-        self.entities.push(Entity::new(len));
-        len
-    }
-    pub fn get_ent(&self, id: EID) -> Option<&Entity> {
-        self.entities.get(id as usize)
-    }
-    pub fn get_ent_mut(&mut self, id: EID) -> Option<&mut Entity> {
-        self.entities.get_mut(id as usize)
+    pub fn new() -> Self {
+        let mut rtn = Self::default();
+        (0..u16::MAX).for_each(|i| rtn.slots.push(Slot::new(i as usize)));
+        rtn
     }
 }
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Entity {
-    pub holding: bool,
-    pub id: EID,
-    pub born_at_micros: i64,
-}
-impl Entity {
-    pub fn new(id: EID) -> Self {
-        Self {
-            holding: true,
-            id,
-            born_at_micros: Utc::now().timestamp_micros(),
-        }
-    }
-}
-
-pub trait Property {
-    fn new() -> Self;
-
-    #[allow(unused_variables)]
-    fn ignite(&mut self, world: &mut World) {}
-
-    #[allow(unused_variables)]
-    fn rolling(&mut self, world: &World) {}
-
-    #[allow(unused_variables)]
-    fn tick(&mut self, entity: &mut Entity, world: &World) {}
-
-    #[allow(unused_variables)]
-    fn exclusive_tick(&mut self, world: &mut World) {}
-}
-
-pub trait Component {}
 
 fn main() {
-    println!("Hello, world!");
-    let mut world = World::default();
-    let idx0 = world.spawn();
-
-    let ent0 = world.get_ent(idx0).unwrap();
-    dbg!(ent0);
+    let w = World::new();
+    for i in w.slots.iter() {
+        println!("{:?}", i.get_entropy());
+    }
 }
