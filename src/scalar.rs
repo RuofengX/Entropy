@@ -1,4 +1,4 @@
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Div};
 
 pub trait Scalar: Clone + Copy + Send + Sync + AddAssign<Self> {}
 
@@ -8,7 +8,7 @@ pub type LENGTH = f64;
 pub type MASSIVE = f64;
 pub type FORCE = f64;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Force(pub [LENGTH; DIMENSION]);
 impl Scalar for Force {}
 impl AddAssign<Force> for Force {
@@ -16,6 +16,17 @@ impl AddAssign<Force> for Force {
         for i in 0..DIMENSION {
             self.0[i] += rhs.0[i];
         }
+    }
+}
+impl Div<Massive> for Force {
+    type Output = Accelerate;
+
+    fn div(self, rhs: Massive) -> Self::Output {
+        let mut rtn = [0.0; DIMENSION];
+        for i in 0..DIMENSION {
+            rtn[i] = self.0[i] / rhs.0;
+        }
+        Accelerate(rtn)
     }
 }
 
@@ -27,6 +38,15 @@ impl AddAssign<Coordinate> for Coordinate {
         for i in 0..DIMENSION {
             self.0[i] += rhs.0[i];
         }
+    }
+}
+impl Coordinate {
+    pub fn length(&self) -> LENGTH {
+        let mut a = 0.0;
+        for i in 0..DIMENSION {
+            a += self.0[i].exp2();
+        }
+        a.sqrt()
     }
 }
 
@@ -56,6 +76,13 @@ impl Velocity {
         }
         Coordinate(self.0)
     }
+    pub fn length(&self) -> LENGTH {
+        let mut a = 0.0;
+        for i in 0..DIMENSION {
+            a += self.0[i].exp2();
+        }
+        a.sqrt()
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -74,5 +101,12 @@ impl Accelerate {
             self.0[i] *= time as f64;
         }
         Velocity(self.0)
+    }
+    pub fn length(&self) -> LENGTH {
+        let mut a = 0.0;
+        for i in 0..DIMENSION {
+            a += self.0[i].exp2();
+        }
+        a.sqrt()
     }
 }

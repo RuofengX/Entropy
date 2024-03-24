@@ -1,14 +1,13 @@
 use crate::scalar::*;
 
+use super::Tickable;
+
 pub trait Positional {
-    fn get_coordinate(&self) -> Coordinate;
-    fn get_coordinate_mut(&self) -> &mut Coordinate;
-    fn set_coordinate(&self, value: Coordinate);
+    fn add_coordinate(&mut self, value:Coordinate);
 }
 
-pub trait Concrete{
-    fn get_massive(&self) -> Massive;
-    fn set_massive(&mut self, value: Massive);
-    fn get_force(&self) -> Massive;
-    fn set_force(&mut self, value: Massive);
+pub trait Concrete: Tickable{
+    fn add_massive(&mut self, value: Massive);
+    fn move_force(&mut self) -> Force;
+    fn calc_accelerate(&self) -> Accelerate;
 }
