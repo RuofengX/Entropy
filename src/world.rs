@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+use crate::node::Node;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct World {
-    nodes: []
+    active_nodes: Vec<Node>,
+    
 }
