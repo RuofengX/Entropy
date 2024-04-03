@@ -5,6 +5,41 @@ use std::{
     io::{Read, Write},
 };
 
+///         ^U 
+///      LU MU RU
+/// L <- LM MM RM -> R
+///      LD MD RM
+///         vD
+pub mod direction {
+    pub type Direction = (i16,i16);
+    pub const LU: (i16, i16) = (-1, 1);
+    pub const MU: (i16, i16) = (0, 1);
+    pub const RU: (i16, i16) = (1, 1);
+    pub const LM: (i16, i16) = (-1, 0);
+    pub const MM: (i16, i16) = (0, 0);
+    pub const RM: (i16, i16) = (1, 0);
+    pub const LD: (i16, i16) = (-1, -1);
+    pub const MD: (i16, i16) = (0, -1);
+    pub const RD: (i16, i16) = (1, -1);
+}
+
+/// y
+/// ^ 0,1,2
+/// | 3,4,5,
+/// | 6,7,8
+/// |------> x
+pub const ALL_DIRECTION: [(i16, i16); 9] = [
+    (-1, 1),
+    (0, 1),
+    (1, 1),
+    (-1, 0),
+    (0, 0),
+    (1, 0),
+    (-1, -1),
+    (0, -1),
+    (1, -1),
+];
+
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 pub struct NodeData(#[serde(with = "serde_bytes")] pub [u8; 1024]);
 impl NodeData {
@@ -15,24 +50,15 @@ impl NodeData {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 pub struct NodeID(pub i16, pub i16);
 impl NodeID {
     pub fn get_nearby_index(&self) -> NearbyIndex {
         let mut rtn = [self.clone(); 9];
-        let directions: [(i16, i16); 9] = [
-            (-1, 1),
-            (0, 1),
-            (1, 1),
-            (-1, 0),
-            (0, 0),
-            (1, 0),
-            (-1, -1),
-            (0, -1),
-            (1, -1),
-        ];
 
-        for (node, direction) in rtn.iter_mut().zip(directions.iter()) {
+        for (node, direction) in rtn.iter_mut().zip(ALL_DIRECTION.iter()) {
             (*node).0 += direction.0;
             (*node).1 += direction.1;
         }
@@ -53,9 +79,21 @@ impl Node {
         }
     }
 
+    pub fn generate_new(id: NodeID) -> Self {
+        Node {
+            index: id.get_nearby_index(),
+            data: NodeData::random(),
+        }
+    }
+
     pub fn save_to_writer(self, writer: impl Write) {
-        serde_json::to_writer(writer, &self)
-            .expect(format!("error when write node {:?} into writer", self.index.get_id()).as_str());
+        serde_json::to_writer(writer, &self).expect(
+            format!(
+                "error when write node {:?} into writer",
+                self.index.get_id()
+            )
+            .as_str(),
+        );
     }
 
     pub fn construct_from_reader(reader: impl Read) -> Self {
@@ -63,11 +101,6 @@ impl Node {
     }
 }
 
-/// y
-/// ^ 0,1,2
-/// | 3,4,5,
-/// | 6,7,8
-/// |------> x
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NearbyIndex(pub [NodeID; 9]);
 impl NearbyIndex {

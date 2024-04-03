@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ahash = "0.8.11"
+ahash = { version = "0.8.11", features = ["serde"] }
 bincode = { version = "2.0.0-rc.3", features = ["serde"] }
 chrono = "0.4.35"
 rand = "0.8.5"
