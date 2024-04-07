@@ -52,21 +52,5 @@ impl Slot {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct World {
-    slots: Vec<Slot>,
-}
-impl World {
-    pub fn new() -> Self {
-        let mut rtn = Self::default();
-        (0..u16::MAX).for_each(|i| rtn.slots.push(Slot::new(i as usize)));
-        rtn
-    }
-}
-
 fn main() {
-    let w = World::new();
-    for i in w.slots.iter() {
-        println!("{:?}", i.get_entropy());
-    }
 }
