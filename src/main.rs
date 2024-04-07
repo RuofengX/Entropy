@@ -1,7 +1,7 @@
 pub mod node;
 pub mod world;
 mod err;
-mod player;
+mod guest;
 
 use serde::{Deserialize, Serialize};
 

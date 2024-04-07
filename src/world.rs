@@ -2,7 +2,7 @@ use ahash::AHashMap;
 
 use crate::{
     node::{Node, NodeID},
-    player::{Guest, GID},
+    guest::{Guest, GID},
 };
 
 pub trait SaveStorage {
