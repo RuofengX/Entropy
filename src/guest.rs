@@ -1,5 +1,6 @@
 use std::sync::RwLock;
 
+use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
 use crate::node::{direction, NodeID};
@@ -19,7 +20,9 @@ pub struct Guest {
     pub id: GID,
     node: NodeID,
     temperature: u8,
-    energy: u8,
+    energy: NotNan<f32>,
+    walk_cost: NotNan<f32>,
+    engine_efficiency: NotNan<f32>,
 }
 
 impl Guest {
@@ -30,11 +33,14 @@ impl Guest {
             id: wtx.get_then_increase(),
             node,
             temperature: 128,
-            energy: 0,
+            energy: NotNan::new(0.0).unwrap(),
+            engine_efficiency: NotNan::new(0.8).unwrap(),
+            walk_cost: NotNan::new(0.8).unwrap(),
         }
     }
     pub fn walk(&mut self, direction: direction::Direction) {
         self.node.0 += direction.0;
         self.node.1 += direction.1;
+        self.energy -= self.walk_cost;
     }
 }
