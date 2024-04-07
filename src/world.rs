@@ -1,8 +1,9 @@
 use ahash::AHashMap;
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    node::{Node, NodeID},
     guest::{Guest, GID},
+    node::{Node, NodeID},
 };
 
 pub trait SaveStorage {
@@ -14,12 +15,21 @@ pub trait SaveStorage {
     fn flush(&mut self) -> ();
 }
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize, Deserialize)]
 pub struct WorldID(pub u64);
 
 pub struct World {
     id: WorldID,
-    players: AHashMap<GID, Guest>,
-    node_list: Vec<NodeID>,
-    nodes_active: Vec<Node>,
+    players: AHashMap<GID, Guest, ahash::RandomState>,
+    nodes_active: AHashMap<NodeID, Node, ahash::RandomState>,
     storage_backend: Box<dyn SaveStorage>,
+}
+
+impl World {
+    pub fn spawn(&mut self) -> GID {
+        let g = Guest::spawn(self.id, NodeID(0, 0));
+        let g_id = g.id;
+        self.players.insert(g_id, g);
+        g_id
+    }
 }

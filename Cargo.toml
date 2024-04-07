@@ -9,6 +9,7 @@ edition = "2021"
 ahash = { version = "0.8.11", features = ["serde"] }
 bincode = { version = "2.0.0-rc.3", features = ["serde"] }
 chrono = "0.4.35"
+lockfree = "0.5.1"
 rand = "0.8.5"
 serde = { version = "1.0.197", features = ["derive"] }
 serde-pickle = "1.1.1"

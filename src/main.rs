@@ -2,6 +2,7 @@ pub mod node;
 pub mod world;
 mod err;
 mod guest;
+pub mod soul;
 
 use serde::{Deserialize, Serialize};
 
