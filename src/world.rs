@@ -28,7 +28,7 @@ impl WorldID {
 }
 
 pub struct World {
-    guests: AHashMap<GID, RwLock<Guest>, ahash::RandomState>,
+    players: AHashMap<GID, RwLock<Guest>, ahash::RandomState>,
     nodes_active: RwLock<AHashMap<NodeID, RwLock<Node>, ahash::RandomState>>,
     storage_backend: Box<dyn SaveStorage>,
 }
@@ -36,7 +36,7 @@ pub struct World {
 impl World {
     pub fn new(storage_backend: Box<dyn SaveStorage>) -> World {
         World {
-            guests: AHashMap::new(),
+            players: AHashMap::new(),
             nodes_active: RwLock::new(AHashMap::new()),
             storage_backend,
         }
@@ -47,17 +47,17 @@ impl World {
     pub fn spawn(&mut self) -> GID {
         let g = Guest::spawn(NodeID(0, 0));
         let g_id = g.id;
-        self.guests.insert(g_id, RwLock::new(g));
+        self.players.insert(g_id, RwLock::new(g));
         g_id
     }
     pub fn get_guest(&self, id: GID) -> Option<&RwLock<Guest>> {
-        self.guests.get(&id).and_then(|g| Some(g))
+        self.players.get(&id).and_then(|g| Some(g))
     }
     pub fn get_node<'a>(&'a self, id: NodeID) -> Option<&'a RwLock<Node>> {
         let n_act: RwLockReadGuard<'a, AHashMap<NodeID, RwLock<Node>>> =
             self.nodes_active.read().unwrap();
         if n_act.contains_key(&id) {
-            return self.nodes_active.read().unwrap().get(&id).and_then(|g| Some(g));
+            return n_act.get(&id).and_then(|g| Some(g)); //FIXME:???????????????????????????????????????
         } else if self.storage_backend.contains_node(id) {
             return self.load_node(id);
         } else {
