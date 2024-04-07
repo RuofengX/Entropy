@@ -3,6 +3,7 @@ pub mod world;
 mod err;
 mod guest;
 pub mod soul;
+pub mod wheel;
 
 use serde::{Deserialize, Serialize};
 

@@ -20,19 +20,17 @@ impl GID {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Guest {
     pub id: GID,
-    world: WorldID,
     node: NodeID,
     temperature: u8,
     energy: u8,
 }
 
 impl Guest {
-    pub fn spawn(world: WorldID, node: NodeID) -> Guest {
+    pub fn spawn(node: NodeID) -> Guest {
         static ID_COUNTER: RwLock<GID> = RwLock::new(GID(0));
         let mut wtx = ID_COUNTER.write().unwrap();
         Guest {
             id: wtx.get_then_increase(),
-            world,
             node,
             temperature: 128,
             energy: 0,

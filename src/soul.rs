@@ -1,9 +1,14 @@
+use std::sync::Arc;
 
-use crate::guest::GID;
+use crate::{
+    guest::GID,
+    world::{SaveStorage, World, WorldID},
+};
 
-pub struct Soul{
+pub struct Soul {
     pub id: u64,
     pub username: String,
     password: String,
-    connected_guest: Vec<GID>,
+    owned_guest: Vec<GID>,
+    connected_world: Vec<Arc<World>>,
 }
