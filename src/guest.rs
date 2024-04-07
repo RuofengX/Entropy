@@ -2,10 +2,7 @@ use std::sync::RwLock;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    node::{direction, NodeID},
-    world::WorldID,
-};
+use crate::node::{direction, NodeID};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize, Deserialize)]
 pub struct GID(pub u64);

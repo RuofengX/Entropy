@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use crate::{
-    guest::GID,
-    world::{SaveStorage, World, WorldID},
-};
+use crate::{guest::GID, world::World};
 
 pub struct Soul {
     pub id: u64,
