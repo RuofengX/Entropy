@@ -86,6 +86,10 @@ impl Node {
         }
     }
 
+    pub fn get_id(&self) -> NodeID{
+        self.index.get_id()
+    }
+
     pub fn save_to_writer(self, writer: impl Write) {
         serde_json::to_writer(writer, &self).expect(
             format!(

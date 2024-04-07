@@ -12,8 +12,9 @@ pub struct Soul {
 }
 impl Soul {
     pub fn walk(&mut self, direction: direction::Direction) {
-        self.node.0 += direction.0;
-        self.node.1 += direction.1;
-        self.energy -= self.walk_cost;
+        todo!()
+        // self.node.0 += direction.0;
+        // self.node.1 += direction.1;
+        // self.energy -= self.walk_cost;
     }
 }
