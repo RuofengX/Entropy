@@ -48,4 +48,10 @@ impl World {
         self.players.insert(g_id, g);
         g_id
     }
+    pub fn get_guest(&self, id: GID) -> Option<&Guest> {
+        self.players.get(&id).and_then(|g| Some(g))
+    }
+    pub fn get_guest_mut(&self, id: GID) -> Option<&Guest> {
+        self.players.get(&id).and_then(|g| Some(g))
+    }
 }

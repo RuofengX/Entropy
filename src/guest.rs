@@ -38,9 +38,4 @@ impl Guest {
             walk_cost: NotNan::new(0.8).unwrap(),
         }
     }
-    pub fn walk(&mut self, direction: direction::Direction) {
-        self.node.0 += direction.0;
-        self.node.1 += direction.1;
-        self.energy -= self.walk_cost;
-    }
 }
