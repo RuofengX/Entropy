@@ -1,4 +1,7 @@
-use std::sync::{RwLock, RwLockReadGuard};
+use std::{
+    borrow::BorrowMut,
+    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
+};
 
 use ahash::AHashMap;
 use serde::{Deserialize, Serialize};
@@ -53,24 +56,33 @@ impl World {
     pub fn get_guest(&self, id: GID) -> Option<&RwLock<Guest>> {
         self.players.get(&id).and_then(|g| Some(g))
     }
-    pub fn get_node<'a>(&'a self, id: NodeID) -> Option<RwLockReadGuard<Node>> {
-        let n_act = self.nodes_active.read().unwrap();
-        if n_act.contains_key(&id) {
-            return n_act.get(&id).and_then(|g| Some(g.read().unwrap()));
-        } else if self.storage_backend.contains_node(id) {
-            return self.load_node_then_get(id);
-        } else {
-            None
-        }
+    pub fn modify_node_with(&self, id: NodeID, f: impl FnOnce(&mut Node) -> ()) -> bool {
+        let nodes_active_ctx = self.nodes_active.read().unwrap();
+
+        if nodes_active_ctx.contains_key(&id) {
+            if let Some(node_lock) = nodes_active_ctx.get(&id) {
+                let mut node_ctx = node_lock.write().unwrap();
+                f(&mut node_ctx);
+                return true;
+            };
+        };
+
+        if self.storage_backend.contains_node(id) {
+            let _result = self.load_node_then_modify(id, f);
+            debug_assert_eq!(_result, true);
+            return true;
+        };
+        false
     }
-    fn load_node_then_get(&self, id: NodeID) -> Option<RwLockReadGuard<Node>> {
-        if let Some(node) = self.storage_backend.load_node(id) {
+    fn load_node_then_modify(&self, id: NodeID, f: impl FnOnce(&mut Node) -> ()) -> bool {
+        if let Some(mut node) = self.storage_backend.load_node(id) {
             let nid = node.get_id();
-            let mut n_act = self.nodes_active.write().unwrap();
-            n_act.insert(nid, RwLock::new(node));
-            Some(n_act.get(&nid).unwrap().read().unwrap())
+            f(&mut node);
+            let mut node_active_ctx = self.nodes_active.write().unwrap();
+            node_active_ctx.insert(nid, RwLock::new(node));
+            true
         } else {
-            None
+            false
         }
     }
 }
