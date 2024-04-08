@@ -69,7 +69,7 @@ impl NodeID {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Node {
     index: NearbyIndex,
-    data: NodeData,
+    pub data: NodeData,
 }
 impl Node {
     pub fn new(id: NodeID, data: NodeData) -> Self {

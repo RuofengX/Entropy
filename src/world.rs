@@ -1,5 +1,11 @@
 use std::{
-    borrow::BorrowMut, collections::BTreeMap, sync::{atomic::AtomicU64, RwLock, RwLockReadGuard, RwLockWriteGuard}
+    borrow::BorrowMut,
+    collections::BTreeMap,
+    ops::DerefMut,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        RwLock, RwLockReadGuard, RwLockWriteGuard,
+    },
 };
 
 use ahash::AHashMap;
@@ -8,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     guest::{Guest, GID},
-    node::{Node, NodeID},
+    node::{Node, NodeData, NodeID},
 };
 
 pub trait SaveStorage {
@@ -47,6 +53,7 @@ impl World {
 }
 
 impl World {
+    /// Admin usage
     pub fn spawn(&mut self) -> GID {
         let g = Guest::spawn(NodeID(0, 0));
         let g_id = g.id;
@@ -54,11 +61,24 @@ impl World {
         g_id
     }
 
-    pub fn get_guest(&self, id: GID) -> Option<&RwLock<Guest>> {
+    /// Soul usage
+    pub(crate) fn get_guest(&self, id: GID) -> Option<&RwLock<Guest>> {
         self.players.get(&id).and_then(|g| Some(g))
     }
 
-    pub fn modify_node_with(&self, id: NodeID, f: impl FnOnce(&mut Node) -> ()) -> bool {
+    /// Soul usage
+    pub(crate) fn detect_node(&self, id: NodeID) -> Option<NodeData> {
+        if let Some(node) = self.nodes_active.get(&id) {
+            return Some(node.read().unwrap().data.clone());
+        };
+        if self.load_node(id) {
+            return self.get_active_node_data(id);
+        };
+        None
+    }
+
+    /// Soul usage
+    pub(crate) fn modify_node_with(&self, id: NodeID, f: impl FnOnce(&mut Node) -> ()) -> bool {
         if self.nodes_active.contains_key(&id) {
             if let Some(node_lock) = self.nodes_active.get(&id) {
                 let mut node_ctx = node_lock.write().unwrap();
@@ -75,14 +95,55 @@ impl World {
         false
     }
 
-    fn load_node_then_modify(&self, id: NodeID, f: impl FnOnce(&mut Node) -> ()) -> bool {
-        if let Some(mut node) = self.storage_backend.load_node(id) {
-            let nid = node.get_id();
-            f(&mut node);
-            self.nodes_active.insert(nid, RwLock::new(node));
+    fn get_active_node_data(&self, id: NodeID) -> Option<NodeData> {
+        self.nodes_active
+            .get(&id)
+            .and_then(|node| node.read().ok().and_then(|n| Some(n.data.clone())))
+    }
+
+    fn check_node_status(&self, id: NodeID) -> NodeStatus {
+        if self.nodes_active.contains_key(&id) {
+            return NodeStatus::Active;
+        } else if self.storage_backend.contains_node(id) {
+            return NodeStatus::Archived;
+        } else {
+            return NodeStatus::NotExist;
+        }
+    }
+
+    fn load_node(&self, id: NodeID) -> bool {
+        if let Some(node) = self.storage_backend.load_node(id) {
+            self.nodes_active.insert(id, RwLock::new(node));
             true
         } else {
             false
         }
     }
+
+    fn load_node_then_modify(&self, id: NodeID, f: impl FnOnce(&mut Node) -> ()) -> bool {
+        if let Some(node) = self.nodes_active.get_mut(&id) {
+            f(&mut node.write().unwrap());
+            return true;
+        };
+        if let Some(mut node) = self.storage_backend.load_node(id) {
+            f(&mut node);
+            self.nodes_active.insert(id, RwLock::new(node));
+            return true;
+        };
+        return false;
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct NodeHeat {
+    #[serde(skip)]
+    nodes_runtime_use: AHashMap<NodeID, AtomicU64>,
+    nodes_heat: AHashMap<NodeID, AtomicU64>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum NodeStatus {
+    Active,
+    Archived,
+    NotExist,
 }
