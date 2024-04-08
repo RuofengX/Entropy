@@ -53,23 +53,22 @@ impl World {
     pub fn get_guest(&self, id: GID) -> Option<&RwLock<Guest>> {
         self.players.get(&id).and_then(|g| Some(g))
     }
-    pub fn get_node<'a>(&'a self, id: NodeID) -> Option<&'a RwLock<Node>> {
-        let n_act: RwLockReadGuard<'a, AHashMap<NodeID, RwLock<Node>>> =
-            self.nodes_active.read().unwrap();
+    pub fn get_node<'a>(&'a self, id: NodeID) -> Option<RwLockReadGuard<Node>> {
+        let n_act = self.nodes_active.read().unwrap();
         if n_act.contains_key(&id) {
-            return n_act.get(&id).and_then(|g| Some(g)); //FIXME:???????????????????????????????????????
+            return n_act.get(&id).and_then(|g| Some(g.read().unwrap()));
         } else if self.storage_backend.contains_node(id) {
-            return self.load_node(id);
+            return self.load_node_then_get(id);
         } else {
             None
         }
     }
-    fn load_node(&self, id: NodeID) -> Option<&RwLock<Node>> {
+    fn load_node_then_get(&self, id: NodeID) -> Option<RwLockReadGuard<Node>> {
         if let Some(node) = self.storage_backend.load_node(id) {
             let nid = node.get_id();
             let mut n_act = self.nodes_active.write().unwrap();
             n_act.insert(nid, RwLock::new(node));
-            n_act.get(&nid)
+            Some(n_act.get(&nid).unwrap().read().unwrap())
         } else {
             None
         }
