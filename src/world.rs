@@ -1,9 +1,9 @@
 use std::{
-    borrow::BorrowMut,
-    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
+    borrow::BorrowMut, collections::BTreeMap, sync::{atomic::AtomicU64, RwLock, RwLockReadGuard, RwLockWriteGuard}
 };
 
 use ahash::AHashMap;
+use dashmap::{DashMap, DashSet};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -32,7 +32,7 @@ impl WorldID {
 
 pub struct World {
     players: AHashMap<GID, RwLock<Guest>, ahash::RandomState>,
-    nodes_active: RwLock<AHashMap<NodeID, RwLock<Node>, ahash::RandomState>>,
+    nodes_active: DashMap<NodeID, RwLock<Node>, ahash::RandomState>,
     storage_backend: Box<dyn SaveStorage>,
 }
 
@@ -40,7 +40,7 @@ impl World {
     pub fn new(storage_backend: Box<dyn SaveStorage>) -> World {
         World {
             players: AHashMap::new(),
-            nodes_active: RwLock::new(AHashMap::new()),
+            nodes_active: DashMap::<NodeID, RwLock<Node>, ahash::RandomState>::default(),
             storage_backend,
         }
     }
@@ -53,14 +53,14 @@ impl World {
         self.players.insert(g_id, RwLock::new(g));
         g_id
     }
+
     pub fn get_guest(&self, id: GID) -> Option<&RwLock<Guest>> {
         self.players.get(&id).and_then(|g| Some(g))
     }
-    pub fn modify_node_with(&self, id: NodeID, f: impl FnOnce(&mut Node) -> ()) -> bool {
-        let nodes_active_ctx = self.nodes_active.read().unwrap();
 
-        if nodes_active_ctx.contains_key(&id) {
-            if let Some(node_lock) = nodes_active_ctx.get(&id) {
+    pub fn modify_node_with(&self, id: NodeID, f: impl FnOnce(&mut Node) -> ()) -> bool {
+        if self.nodes_active.contains_key(&id) {
+            if let Some(node_lock) = self.nodes_active.get(&id) {
                 let mut node_ctx = node_lock.write().unwrap();
                 f(&mut node_ctx);
                 return true;
@@ -74,12 +74,12 @@ impl World {
         };
         false
     }
+
     fn load_node_then_modify(&self, id: NodeID, f: impl FnOnce(&mut Node) -> ()) -> bool {
         if let Some(mut node) = self.storage_backend.load_node(id) {
             let nid = node.get_id();
             f(&mut node);
-            let mut node_active_ctx = self.nodes_active.write().unwrap();
-            node_active_ctx.insert(nid, RwLock::new(node));
+            self.nodes_active.insert(nid, RwLock::new(node));
             true
         } else {
             false
