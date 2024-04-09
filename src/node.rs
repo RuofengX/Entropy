@@ -5,13 +5,13 @@ use std::{
     io::{Read, Write},
 };
 
-///         ^U 
+///         ^U
 ///      LU MU RU
 /// L <- LM MM RM -> R
 ///      LD MD RM
 ///         vD
 pub mod direction {
-    pub type Direction = (i16,i16);
+    pub type Direction = (i16, i16);
     pub const LU: (i16, i16) = (-1, 1);
     pub const MU: (i16, i16) = (0, 1);
     pub const RU: (i16, i16) = (1, 1);
@@ -72,9 +72,7 @@ pub struct Node {
 }
 impl Node {
     pub fn new(data: NodeData) -> Self {
-        Node {
-            data,
-        }
+        Node { data }
     }
 
     pub fn generate_new() -> Self {
@@ -112,7 +110,6 @@ mod test {
     #[test]
     fn test_node_serde() {
         use super::{Node, NodeData, NodeID};
-        let node_i = NodeID(1, 2);
         let node = Node::new(NodeData::random());
         let encoded_string = serde_json::to_string(&node).unwrap();
         let encoded_pickle =

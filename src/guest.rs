@@ -15,7 +15,7 @@ impl GID {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Guest {
     pub id: GID,
     node: NodeID,
@@ -26,11 +26,9 @@ pub struct Guest {
 }
 
 impl Guest {
-    pub fn spawn(node: NodeID) -> Guest {
-        static ID_COUNTER: RwLock<GID> = RwLock::new(GID(0));
-        let mut wtx = ID_COUNTER.write().unwrap();
+    pub fn spawn(id:GID, node: NodeID) -> Guest {
         Guest {
-            id: wtx.get_then_increase(),
+            id,
             node,
             temperature: 128,
             energy: NotNan::new(0.0).unwrap(),
