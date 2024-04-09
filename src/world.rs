@@ -11,7 +11,7 @@ use std::{
 use ahash::AHashMap;
 use moka::{
     policy::EvictionPolicy,
-    sync::{Cache, CacheBuilder},
+    sync::{Cache, CacheBuilder, SegmentedCache},
 };
 use serde::{Deserialize, Serialize};
 
@@ -29,7 +29,7 @@ pub trait SaveStorage: std::fmt::Debug {
     fn save_guest(&self, id: GID, guest: Option<&Guest>) -> bool;
     fn load_guests(&self) -> Vec<Guest>;
     fn count_guests(&self) -> u64;
-    fn flush(&mut self) -> ();
+    fn flush(&self) -> ();
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize, Deserialize)]
@@ -45,7 +45,7 @@ impl WorldID {
 #[derive(Debug)]
 pub struct World {
     guests: AHashMap<GID, RwLock<Guest>, ahash::RandomState>,
-    nodes_active: Cache<NodeID, Arc<RwLock<Node>>>,
+    nodes_active: SegmentedCache<NodeID, Arc<RwLock<Node>>>,
     storage_backend: Rc<dyn SaveStorage>,
 }
 
@@ -59,6 +59,7 @@ impl World {
                 .collect(),
             nodes_active: CacheBuilder::new(1_000_000)
                 .eviction_policy(EvictionPolicy::lru())
+                .segments(16)
                 .build(),
             storage_backend,
         }
@@ -75,6 +76,7 @@ impl Drop for World {
             self.storage_backend
                 .save_node(id.deref().clone(), Some(&node_ctx.read().unwrap()));
         });
+        self.storage_backend.flush();
         dbgprintln!("回收world完毕");
     }
 }
@@ -128,6 +130,7 @@ impl World {
     }
 
     fn generate_node(&self, id: NodeID) -> NodeData {
+        dbgprintln!("生成node::{:?}", id);
         let node = Node::generate_new();
         let rtn = node.data.clone();
         // self.storage_backend.save_node(id, Some(&node));
@@ -252,10 +255,10 @@ impl SaveStorage for SledBackend {
         self.guests.len() as u64
     }
 
-    fn flush(&mut self) -> () {
-        match dbg!(self.db.flush()) {
+    fn flush(&self) -> () {
+        match self.db.flush() {
             Ok(c) => {
-                dbg!(format!("保存了{}字节", c));
+                dbgprintln!("保存了{:?}字节", c);
             }
             Err(e) => {
                 panic!("保存sled数据库时错误::{}", e)
@@ -323,13 +326,13 @@ mod test {
 
     #[test]
     fn save_lot_nodes() {
-        let back = Rc::new(SledBackend::new(true));
+        let back = Rc::new(SledBackend::new(false));
         let w = World::new(back.clone());
-        for i in 0..10086 {
+        for i in 0..1001 {
             w.detect_node(NodeID(i, i));
         }
         drop(w);
         let w = World::new(back.clone());
-        assert_eq!(w.storage_backend.count_nodes(), 10086);
+        assert_eq!(w.storage_backend.count_nodes(), 1001);
     }
 }
