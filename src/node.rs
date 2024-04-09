@@ -1,9 +1,6 @@
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
-use std::{
-    hash::Hash,
-    io::{Read, Write},
-};
+use std::hash::Hash;
 
 ///         ^U
 ///      LU MU RU
@@ -109,7 +106,7 @@ mod test {
 
     #[test]
     fn test_node_serde() {
-        use super::{Node, NodeData, NodeID};
+        use super::{Node, NodeData};
         let node = Node::new(NodeData::random());
         let encoded_string = serde_json::to_string(&node).unwrap();
         let encoded_pickle =

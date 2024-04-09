@@ -1,9 +1,7 @@
-use std::sync::RwLock;
-
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
-use crate::node::{direction, NodeID};
+use crate::node::NodeID;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize, Deserialize)]
 pub struct GID(pub u64);
@@ -26,7 +24,8 @@ pub struct Guest {
 }
 
 impl Guest {
-    pub fn spawn(id:GID, node: NodeID) -> Guest {
+    /// used by World::Spawn
+    pub(crate) fn spawn(id: GID, node: NodeID) -> Guest {
         Guest {
             id,
             node,
