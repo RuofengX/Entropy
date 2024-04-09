@@ -1,15 +1,20 @@
 use std::{
     borrow::BorrowMut,
     collections::BTreeMap,
+    num::NonZeroUsize,
     ops::DerefMut,
     sync::{
         atomic::{AtomicU64, Ordering},
-        RwLock, RwLockReadGuard, RwLockWriteGuard,
+        Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
     },
 };
 
 use ahash::AHashMap;
 use dashmap::{DashMap, DashSet};
+use moka::{
+    policy::EvictionPolicy,
+    sync::{Cache, CacheBuilder},
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -22,7 +27,7 @@ pub trait SaveStorage {
     fn save_node(&self, node: Option<Node>) -> Option<()>;
     fn load_node(&self, node_id: NodeID) -> Option<Node>;
     fn save_guest(&self, guest: Option<Guest>) -> Option<()>;
-    fn load_guest(&self, guest_id: GID) -> Option<Guest>;
+    fn load_guests(&self) -> Vec<Guest>;
     fn flush(&mut self) -> ();
 }
 
@@ -38,7 +43,7 @@ impl WorldID {
 
 pub struct World {
     players: AHashMap<GID, RwLock<Guest>, ahash::RandomState>,
-    nodes_active: DashMap<NodeID, RwLock<Node>, ahash::RandomState>,
+    nodes_active: Cache<NodeID, Arc<RwLock<Node>>>,
     storage_backend: Box<dyn SaveStorage>,
 }
 
@@ -46,7 +51,9 @@ impl World {
     pub fn new(storage_backend: Box<dyn SaveStorage>) -> World {
         World {
             players: AHashMap::new(),
-            nodes_active: DashMap::<NodeID, RwLock<Node>, ahash::RandomState>::default(),
+            nodes_active: CacheBuilder::new(1_000_000)
+                .eviction_policy(EvictionPolicy::lru())
+                .build(),
             storage_backend,
         }
     }
@@ -68,13 +75,14 @@ impl World {
 
     /// Soul usage
     pub(crate) fn detect_node(&self, id: NodeID) -> Option<NodeData> {
-        if let Some(node) = self.nodes_active.get(&id) {
-            return Some(node.read().unwrap().data.clone());
-        };
-        if self.load_node(id) {
-            return self.get_active_node_data(id);
-        };
-        None
+        self.detect_node_from_cache(id).or_else(|| {
+            self.load_node(id);
+            if let Some(node) = self.nodes_active.get(&id) {
+                Some(node.read().unwrap().data.clone())
+            } else {
+                None
+            }
+        })
     }
 
     /// Soul usage
@@ -95,12 +103,6 @@ impl World {
         false
     }
 
-    fn get_active_node_data(&self, id: NodeID) -> Option<NodeData> {
-        self.nodes_active
-            .get(&id)
-            .and_then(|node| node.read().ok().and_then(|n| Some(n.data.clone())))
-    }
-
     fn check_node_status(&self, id: NodeID) -> NodeStatus {
         if self.nodes_active.contains_key(&id) {
             return NodeStatus::Active;
@@ -113,7 +115,8 @@ impl World {
 
     fn load_node(&self, id: NodeID) -> bool {
         if let Some(node) = self.storage_backend.load_node(id) {
-            self.nodes_active.insert(id, RwLock::new(node));
+            self.nodes_active
+                .insert(id, Arc::new(RwLock::new(node)));
             true
         } else {
             false
@@ -121,17 +124,27 @@ impl World {
     }
 
     fn load_node_then_modify(&self, id: NodeID, f: impl FnOnce(&mut Node) -> ()) -> bool {
-        if let Some(node) = self.nodes_active.get_mut(&id) {
+        if let Some(node) = self.nodes_active.get(&id) {
             f(&mut node.write().unwrap());
             return true;
         };
         if let Some(mut node) = self.storage_backend.load_node(id) {
             f(&mut node);
-            self.nodes_active.insert(id, RwLock::new(node));
+            self.nodes_active
+                .insert(id, Arc::new(RwLock::new(node)));
             return true;
         };
         return false;
     }
+
+    fn detect_node_from_cache(&self, id: NodeID) -> Option<NodeData> {
+        if let Some(node) = self.nodes_active.get(&id) {
+            Some(node.read().unwrap().data.clone())
+        } else {
+            None
+        }
+    }
+
 }
 
 #[derive(Serialize, Deserialize)]
@@ -146,4 +159,8 @@ enum NodeStatus {
     Active,
     Archived,
     NotExist,
+}
+
+mod test{
+
 }

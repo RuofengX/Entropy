@@ -68,40 +68,19 @@ impl NodeID {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Node {
-    index: NearbyIndex,
     pub data: NodeData,
 }
 impl Node {
-    pub fn new(id: NodeID, data: NodeData) -> Self {
+    pub fn new(data: NodeData) -> Self {
         Node {
-            index: id.get_nearby_index(),
             data,
         }
     }
 
-    pub fn generate_new(id: NodeID) -> Self {
+    pub fn generate_new() -> Self {
         Node {
-            index: id.get_nearby_index(),
             data: NodeData::random(),
         }
-    }
-
-    pub fn get_id(&self) -> NodeID{
-        self.index.get_id()
-    }
-
-    pub fn save_to_writer(self, writer: impl Write) {
-        serde_json::to_writer(writer, &self).expect(
-            format!(
-                "error when write node {:?} into writer",
-                self.index.get_id()
-            )
-            .as_str(),
-        );
-    }
-
-    pub fn construct_from_reader(reader: impl Read) -> Self {
-        serde_json::from_reader(reader).expect("error when read from reader")
     }
 }
 
@@ -134,7 +113,7 @@ mod test {
     fn test_node_serde() {
         use super::{Node, NodeData, NodeID};
         let node_i = NodeID(1, 2);
-        let node = Node::new(node_i, NodeData::random());
+        let node = Node::new(NodeData::random());
         let encoded_string = serde_json::to_string(&node).unwrap();
         let encoded_pickle =
             serde_pickle::to_vec(&node, serde_pickle::SerOptions::default()).unwrap();

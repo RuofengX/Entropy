@@ -11,6 +11,7 @@ bincode = { version = "2.0.0-rc.3", features = ["serde"] }
 chrono = "0.4.35"
 dashmap = "5.5.3"
 lockfree = "0.5.1"
+moka = { version = "0.12.5", features = ["sync"] }
 ordered-float = { version = "4.2.0", features = ["serde"] }
 rand = "0.8.5"
 serde = { version = "1.0.197", features = ["derive"] }
