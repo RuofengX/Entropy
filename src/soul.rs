@@ -1,8 +1,10 @@
+use ahash::HashMap;
+use thiserror::Error;
 use std::sync::Arc;
 
-use ahash::HashMap;
+use crate::{guest::GID, node::{self, direction, NodeID}, world::World};
 
-use crate::{guest::GID, node::direction, world::World};
+struct GuestList(HashMap<GID, Arc<World>>);
 
 pub struct Soul {
     pub id: u64,
@@ -11,10 +13,27 @@ pub struct Soul {
     owned_guest: HashMap<GID, Arc<World>>,
 }
 impl Soul {
-    pub fn walk(&mut self, direction: direction::Direction) {
-        todo!()
-        // self.node.0 += direction.0;
-        // self.node.1 += direction.1;
-        // self.energy -= self.walk_cost;
+    pub fn walk(&mut self, id: GID, direction: direction::Direction) -> Result<NodeID, SoulError> {
+        let guest = self
+            .owned_guest
+            .get(&id)
+            .unwrap()
+            .get_guest(id)
+            .ok_or(SoulError::GuestNotExist)?;
+        let rtn = {
+            let mut guest_ctx = guest.write().unwrap();
+            let cost = guest_ctx.walk_cost;
+            guest_ctx.energy -= cost;
+            guest_ctx.node.walk(direction)?
+        };
+        Ok(rtn)
     }
+}
+
+#[derive(Error, Debug)]
+pub enum SoulError {
+    #[error("guest is recorded in soul's memory, but not found in physical world.")]
+    GuestNotExist,
+    #[error(transparent)]
+    NodeError(#[from] node::NodeError)
 }

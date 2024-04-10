@@ -16,10 +16,10 @@ impl GID {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Guest {
     pub id: GID,
-    node: NodeID,
+    pub node: NodeID,
+    pub energy: NotNan<f32>,
+    pub walk_cost: NotNan<f32>,
     temperature: u8,
-    energy: NotNan<f32>,
-    walk_cost: NotNan<f32>,
     engine_efficiency: NotNan<f32>,
 }
 

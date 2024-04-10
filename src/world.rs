@@ -4,14 +4,13 @@ use dbgprint::dbgprintln;
 use sled::Mode;
 use std::{
     ops::Deref,
-    rc::Rc,
     sync::{Arc, RwLock},
 };
 
 use ahash::AHashMap;
 use moka::{
     policy::EvictionPolicy,
-    sync::{Cache, CacheBuilder, SegmentedCache},
+    sync::{CacheBuilder, SegmentedCache},
 };
 use serde::{Deserialize, Serialize};
 
@@ -46,11 +45,11 @@ impl WorldID {
 pub struct World {
     guests: AHashMap<GID, RwLock<Guest>, ahash::RandomState>,
     nodes_active: SegmentedCache<NodeID, Arc<RwLock<Node>>>,
-    storage_backend: Rc<dyn SaveStorage>,
+    storage_backend: Arc<dyn SaveStorage>,
 }
 
 impl World {
-    pub fn new(storage_backend: Rc<dyn SaveStorage>) -> World {
+    pub fn new(storage_backend: Arc<dyn SaveStorage>) -> World {
         World {
             guests: storage_backend
                 .load_guests()
@@ -273,11 +272,11 @@ mod test {
     use crate::guest::GID;
     use crate::node::NodeData;
     use crate::node::NodeID;
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     #[test]
     fn test_sled() {
-        let back = Rc::new(SledBackend::new(true));
+        let back = Arc::new(SledBackend::new(true));
         let mut w = World::new(back.clone());
         assert_eq!(w.spawn(), GID(0));
         assert_eq!(w.spawn(), GID(1));
@@ -296,7 +295,7 @@ mod test {
     #[test]
     fn test_node() {
         // Create world
-        let back = Rc::new(SledBackend::new(true));
+        let back = Arc::new(SledBackend::new(true));
         let w = World::new(back.clone());
 
         //  assert nodes_active length
@@ -326,7 +325,7 @@ mod test {
 
     #[test]
     fn save_lot_nodes() {
-        let back = Rc::new(SledBackend::new(false));
+        let back = Arc::new(SledBackend::new(false));
         let w = World::new(back.clone());
         for i in 0..1001 {
             w.detect_node(NodeID(i, i));
