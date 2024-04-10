@@ -1,9 +1,10 @@
 #![allow(dead_code)]
+use dashmap::mapref::one::Ref;
+use dashmap::DashMap;
 use dbgprint::dbgprintln;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use ahash::AHashMap;
 use moka::{
     policy::EvictionPolicy,
     sync::{CacheBuilder, SegmentedCache},
@@ -39,7 +40,7 @@ impl WorldID {
 
 #[derive(Debug)]
 pub struct World {
-    guests: AHashMap<GID, RwLock<Guest>, ahash::RandomState>,
+    guests: DashMap<GID, RwLock<Guest>, ahash::RandomState>,
     nodes_active: SegmentedCache<NodeID, Arc<RwLock<Node>>>,
     storage_backend: Arc<dyn SaveStorage>,
 }
@@ -63,9 +64,9 @@ impl World {
 impl Drop for World {
     fn drop(&mut self) {
         dbgprintln!("回收world开始");
-        self.guests.iter().for_each(|(id, g)| {
+        self.guests.iter().for_each(|x| {
             self.storage_backend
-                .save_guest(*id, Some(&g.read().unwrap()));
+                .save_guest(*x.key(), Some(&x.value().read().unwrap()));
         });
         self.nodes_active.iter().for_each(|(id, node_ctx)| {
             self.storage_backend
@@ -82,7 +83,7 @@ impl World {
         self.storage_backend.count_guests()
     }
     /// Admin usage
-    pub fn spawn(&mut self) -> GID {
+    pub fn spawn(&self) -> GID {
         let g_id = GID(self.count_guest());
         let g = Guest::spawn(g_id, NodeID(0, 0));
         self.storage_backend.save_guest(g_id, Some(&g));
@@ -91,7 +92,7 @@ impl World {
     }
 
     /// Soul usage
-    pub(crate) fn get_guest(&self, id: GID) -> Option<&RwLock<Guest>> {
+    pub(crate) fn get_guest(&self, id: GID) -> Option<Ref<GID, RwLock<Guest>, ahash::RandomState>> {
         self.guests.get(&id).and_then(|g| Some(g))
     }
 
@@ -273,14 +274,14 @@ mod test {
     #[test]
     fn test_sled() {
         let back = Arc::new(SledBackend::new(true));
-        let mut w = World::new(back.clone());
+        let w = World::new(back.clone());
         assert_eq!(w.spawn(), GID(0));
         assert_eq!(w.spawn(), GID(1));
         assert_eq!(w.spawn(), GID(2));
         let g1 = w.get_guest(GID(1)).unwrap().read().unwrap().clone();
         drop(w);
 
-        let mut w = World::new(back.clone());
+        let w = World::new(back.clone());
         assert_eq!(w.spawn(), GID(3));
         assert_eq!(w.spawn(), GID(4));
         assert_eq!(w.spawn(), GID(5));
