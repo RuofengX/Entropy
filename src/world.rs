@@ -1,11 +1,7 @@
 #![allow(dead_code)]
-
 use dbgprint::dbgprintln;
-use sled::Mode;
-use std::{
-    ops::Deref,
-    sync::{Arc, RwLock},
-};
+use std::sync::Arc;
+use std::sync::RwLock;
 
 use ahash::AHashMap;
 use moka::{
@@ -73,7 +69,7 @@ impl Drop for World {
         });
         self.nodes_active.iter().for_each(|(id, node_ctx)| {
             self.storage_backend
-                .save_node(id.deref().clone(), Some(&node_ctx.read().unwrap()));
+                .save_node(*id.clone(), Some(&node_ctx.read().unwrap()));
         });
         self.storage_backend.flush();
         dbgprintln!("回收world完毕");
@@ -179,7 +175,7 @@ impl SledBackend {
             // 持久化配置
             sled::Config::new()
                 .path("./saves")
-                .mode(Mode::HighThroughput)
+                .mode(sled::Mode::HighThroughput)
                 .open()
                 .expect("创建sled数据库时出错")
         } else {
