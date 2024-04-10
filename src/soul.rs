@@ -39,13 +39,13 @@ impl Soul {
             .and_then(|g| Ok(g.read().unwrap().clone()))
     }
 
-    pub fn move_guest(&mut self, id: GID, direction: Direction) -> Result<NodeID, SoulError> {
+    pub fn move_guest(&mut self, id: GID, to: Direction) -> Result<NodeID, SoulError> {
         let guest = self.guest.get_guest(id)?;
         Ok({
             let mut guest_ctx = guest.write().unwrap();
             let cost = guest_ctx.walk_cost;
             guest_ctx.energy -= cost;
-            guest_ctx.node.walk(direction)?
+            guest_ctx.node.walk(to)?
         })
     }
 }
