@@ -1,9 +1,8 @@
-pub mod node;
-pub mod world;
-mod err;
 mod guest;
+pub mod node;
 pub mod soul;
 pub mod wheel;
+pub mod world;
 
 use serde::{Deserialize, Serialize};
 
@@ -54,5 +53,4 @@ impl Slot {
     }
 }
 
-fn main() {
-}
+fn main() {}

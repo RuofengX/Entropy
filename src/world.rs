@@ -11,6 +11,7 @@ use moka::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::soul::Soul;
 use crate::{
     guest::{Guest, GID},
     node::{Node, NodeData, NodeID},
@@ -25,6 +26,11 @@ pub trait SaveStorage: std::fmt::Debug {
     fn save_guest(&self, id: GID, guest: Option<&Guest>) -> bool;
     fn load_guests(&self) -> Vec<Guest>;
     fn count_guests(&self) -> u64;
+
+    fn save_soul(&self, uid: String, soul: Option<Soul>) -> bool;
+    fn load_soul(&self, uid: String) -> Option<Soul>;
+    fn load_souls(&self) -> Vec<Soul>;
+
     fn flush(&self) -> ();
 }
 
@@ -169,6 +175,7 @@ pub struct SledBackend {
     db: sled::Db,
     guests: typed_sled::Tree<GID, Guest>,
     nodes: typed_sled::Tree<NodeID, Node>,
+    souls: typed_sled::Tree<String, Soul>,
 }
 impl SledBackend {
     pub fn new(temporary: bool) -> Self {
@@ -189,6 +196,7 @@ impl SledBackend {
         SledBackend {
             guests: typed_sled::Tree::open(&db, "guests"),
             nodes: typed_sled::Tree::open(&db, "nodes"),
+            souls: typed_sled::Tree::open(&db, "souls"),
             db,
         }
     }
@@ -240,7 +248,7 @@ impl SaveStorage for SledBackend {
             .filter_map(|x| match x {
                 Ok((_, guest)) => Some(guest),
                 Err(e) => {
-                    dbg!(format!("读取guest时错误::{:?}", e));
+                    dbgprintln!("读取guest时错误::{:?}", e);
                     None
                 }
             })
@@ -249,6 +257,32 @@ impl SaveStorage for SledBackend {
 
     fn count_guests(&self) -> u64 {
         self.guests.len() as u64
+    }
+
+    fn save_soul(&self, uid: String, soul: Option<Soul>) -> bool {
+        if let Some(soul) = soul {
+            dbgprintln!("保存soul::{:?}", uid);
+            self.souls
+                .insert(&uid, &soul)
+                .expect("写入sled数据库错误")
+                .is_some()
+        } else {
+            dbgprintln!("删除soul::{:?}", uid);
+            self.souls
+                .remove(&uid)
+                .expect("写入sled数据库错误")
+                .is_some()
+        }
+    }
+
+    fn load_soul(&self, uid: String) -> Option<Soul> {
+        dbgprintln!("加载soul::{:?}", uid);
+        self.souls.get(&uid).expect("读取sled数据库错误")
+    }
+
+    fn load_souls(&self) -> Vec<Soul> {
+        dbgprintln!("加载全体souls");
+        self.souls.iter().values().map(|x|x.expect("读取sled数据库错误")).collect()
     }
 
     fn flush(&self) -> () {

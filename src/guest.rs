@@ -1,7 +1,8 @@
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
-use crate::node::NodeID;
+use crate::node::{self, direction::Direction, NodeID};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize, Deserialize)]
 pub struct GID(pub u64);
@@ -35,4 +36,22 @@ impl Guest {
             walk_cost: NotNan::new(0.8).unwrap(),
         }
     }
+
+    pub(crate) fn walk(&mut self, to: Direction) -> Result<NodeID, GuestError> {
+        let now = self.energy;
+        let cost = self.walk_cost;
+        if now < cost {
+            return Err(GuestError::EnergyNotEnough("Walk", cost, now));
+        } else {
+            Ok(self.node.walk(to)?)
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum GuestError {
+    #[error("energy is not enough for operation::{0}, {1} needed, {2} left")]
+    EnergyNotEnough(&'static str, NotNan<f32>, NotNan<f32>),
+    #[error(transparent)]
+    NodeError(#[from] node::NodeError),
 }
