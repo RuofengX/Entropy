@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use dbgprint::dbgprintln;
