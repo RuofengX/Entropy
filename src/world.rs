@@ -16,7 +16,7 @@ use crate::{
     node::{Node, NodeData, NodeID},
 };
 
-pub trait SaveStorage: std::fmt::Debug {
+pub trait SaveStorage: std::fmt::Debug + Sync + Send {
     fn contains_node(&self, id: NodeID) -> bool;
     fn save_node(&self, id: NodeID, node: Option<&Node>) -> bool;
     fn load_node(&self, id: NodeID) -> Option<Node>;
@@ -281,7 +281,11 @@ impl SaveStorage for SledBackend {
 
     fn load_souls(&self) -> Vec<Soul> {
         dbgprintln!("加载全体souls");
-        self.souls.iter().values().map(|x|x.expect("读取sled数据库错误")).collect()
+        self.souls
+            .iter()
+            .values()
+            .map(|x| x.expect("读取sled数据库错误"))
+            .collect()
     }
 
     fn flush(&self) -> () {
