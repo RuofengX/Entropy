@@ -1,4 +1,5 @@
 use dashmap::DashSet;
+use futures::{future, TryFutureExt};
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -67,23 +68,26 @@ impl WonderingSoul {
         }
     }
 
-    pub fn get_guest(&self, id: GID) -> Result<Guest, SoulError> {
+    pub async fn get_guest(&self, id: GID) -> Result<Guest, SoulError> {
         if self.soul.guests.contains(&id) {
             self.world
                 .get_guest(id)
                 .ok_or(SoulError::GuestNotExistInWorld(id))
-                .map(|x| x.value().read().unwrap().clone())
+                .map(|x| x.value().blocking_read().clone())
         } else {
             Err(SoulError::GuestNotConnected(id))
         }
     }
 
-    pub fn move_guest(&mut self, id: GID, to: Direction) -> Result<NodeID, SoulError> {
+    pub async fn move_guest(&mut self, id: GID, to: Direction) -> Result<NodeID, SoulError> {
         if self.soul.guests.contains(&id) {
-            self.world
-                .get_guest(id)
-                .ok_or(SoulError::GuestNotExistInWorld(id))
-                .and_then(|x| x.value().write().unwrap().walk(to).map_err(|e| e.into()))
+            future::ready(
+                self.world
+                    .get_guest(id)
+                    .ok_or(SoulError::GuestNotExistInWorld(id)),
+            )
+            .and_then(|x| async move { x.value().write().await.walk(to).map_err(|e| e.into()) })
+            .await
         } else {
             Err(SoulError::GuestNotConnected(id))
         }
