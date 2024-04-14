@@ -17,12 +17,12 @@ impl Default for WheelConfig {
 }
 
 pub struct Wheel {
-    world: Arc<World>,
-    souls: DashMap<String, WonderingSoul, ahash::RandomState>,
+    pub world: Arc<World>,
+    pub souls: DashMap<String, WonderingSoul, ahash::RandomState>,
 }
 
 impl Wheel {
-    pub fn init(config: WheelConfig) {
+    pub fn ignite(config: WheelConfig) {
         let back = Arc::new(SledBackend::new(config.temporary));
         let soul_list = back.as_ref().load_souls();
         let world = Arc::new(World::new(back));
