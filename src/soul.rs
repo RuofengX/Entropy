@@ -6,6 +6,7 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use crate::{
+    db::SaveStorage,
     guest::{self, Guest, GID},
     node::{direction::Direction, NodeID},
     world::World,
@@ -21,14 +22,14 @@ pub struct Soul {
 }
 
 #[derive(Debug)]
-pub struct WonderingSoul {
+pub struct WonderingSoul<S: SaveStorage> {
     soul: Soul,
-    world: Arc<World>,
+    world: Arc<World<S>>,
 }
 
-impl WonderingSoul {
+impl<S: SaveStorage> WonderingSoul<S> {
     pub fn new(
-        world: Arc<World>,
+        world: Arc<World<S>>,
         username: String,
         password: String,
         guest_quota: u64,
@@ -45,11 +46,11 @@ impl WonderingSoul {
             world,
         }
     }
-    pub fn from_soul(soul: Soul, world: Arc<World>) -> Self {
+    pub fn from_soul(soul: Soul, world: Arc<World<S>>) -> Self {
         Self { soul, world }
     }
 }
-impl WonderingSoul {
+impl<S: SaveStorage> WonderingSoul<S> {
     pub fn challenge_password(&self, password: String) -> bool {
         self.soul.password == password
     }
@@ -58,11 +59,11 @@ impl WonderingSoul {
         self.soul.guests.iter().map(|x| x.key().clone()).collect()
     }
 
-    pub fn spawn_guest(&self) -> Result<GID, SoulError> {
+    pub async fn spawn_guest(&self) -> Result<GID, SoulError> {
         if self.soul.guests.len() as u64 > self.soul.guest_quota {
             Err(SoulError::GuestQuotaExceeded(self.soul.guest_quota))
         } else {
-            let id = self.world.spawn();
+            let id = self.world.spawn().await;
             self.soul.guests.insert(id);
             Ok(id)
         }
@@ -72,8 +73,9 @@ impl WonderingSoul {
         if self.soul.guests.contains(&id) {
             self.world
                 .get_guest(id)
+                .await
                 .ok_or(SoulError::GuestNotExistInWorld(id))
-                .map(|x| x.value().blocking_read().clone())
+                .map(|x| x.clone())
         } else {
             Err(SoulError::GuestNotConnected(id))
         }
@@ -84,9 +86,10 @@ impl WonderingSoul {
             future::ready(
                 self.world
                     .get_guest(id)
+                    .await
                     .ok_or(SoulError::GuestNotExistInWorld(id)),
             )
-            .and_then(|x| async move { x.value().write().await.walk(to).map_err(|e| e.into()) })
+            .and_then(|x| async move { x.walk(to).map_err(|e| e.into()) })
             .await
         } else {
             Err(SoulError::GuestNotConnected(id))

@@ -2,10 +2,7 @@ use std::sync::{Arc, OnceLock};
 
 use dashmap::DashMap;
 
-use crate::{
-    soul::WonderingSoul,
-    world::{SaveStorage, SledBackend, World},
-};
+use crate::{db::SledStorage, soul::WonderingSoul, world::World};
 
 pub struct WheelConfig {
     pub temporary: bool,
@@ -17,25 +14,11 @@ impl Default for WheelConfig {
 }
 
 pub struct Wheel {
-    pub world: Arc<World>,
-    pub souls: DashMap<String, WonderingSoul, ahash::RandomState>,
+    pub world: World<SledStorage>,
+    pub souls: DashMap<String, WonderingSoul<SledStorage>, ahash::RandomState>,
 }
 
-impl Wheel {
-    pub fn ignite(config: WheelConfig) {
-        let back = Arc::new(SledBackend::new(config.temporary));
-        let soul_list = back.as_ref().load_souls();
-        let world = Arc::new(World::new(back));
-        let _ = WHEEL.set(Wheel {
-            world: world.clone(),
-            souls: soul_list
-                .into_iter()
-                .map(|x| (x.uid.clone(), WonderingSoul::from_soul(x, world.clone())))
-                .collect(),
-        });
-    }
-
-}
+impl Wheel {}
 
 pub static WHEEL: OnceLock<Wheel> = OnceLock::new();
 // Wheel::new(WheelConfig::default()));
