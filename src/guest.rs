@@ -39,7 +39,7 @@ impl Guest {
         }
     }
 
-    pub(crate) fn node_move(&mut self, to: Direction) -> Result<NodeID> {
+    pub(crate) fn node_move(&mut self, to: Direction) -> Result<Node> {
         let now = self.energy;
         let cost = self.walk_cost;
         if now < cost {

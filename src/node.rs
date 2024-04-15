@@ -66,10 +66,9 @@ impl NodeID {
 
 impl NodeID {
     pub(crate) fn walk(&mut self, direction: direction::Direction) -> Result<NodeID> {
-        let mut buf = self.clone();
-        buf.0 = buf.0.checked_add(direction.0).ok_or(NodeError::IndexOverflow(*self).into())?;
-        buf.1 = buf.1.checked_add(direction.1).ok_or(NodeError::IndexOverflow(*self).into())?;
-        Ok(buf)
+        self.0.wrapping_add(direction.0);
+        self.1.wrapping_add(direction.1);
+        Ok(self.clone())
     }
 }
 

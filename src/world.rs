@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::db::SaveStorage;
 use crate::{
+    err::Result,
     guest::{Guest, GID},
     node::{NodeData, NodeID},
-    err::Result,
 };
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize, Deserialize)]
@@ -60,12 +60,12 @@ impl<S: SaveStorage> World<S> {
     pub(crate) async fn modify_node_with(
         &self,
         id: NodeID,
-        f: impl Fn(&mut NodeData) -> () + Send + Sync,
-    ) -> () {
+        f: impl Fn(&mut NodeData) + Send + Sync,
+    ) -> Result<NodeData> {
         self.storage
             .modify_node_with(id, |x| f(&mut x.data))
             .await
-            .unwrap()
+            .map(|n| n.data)
     }
 
     /// Soul usage
@@ -77,11 +77,13 @@ impl<S: SaveStorage> World<S> {
     pub(crate) async fn modify_guest_with(
         &self,
         id: GID,
-        f: impl Fn(&mut Guest) -> Result<()> + Send + Sync,
-    ) -> Result<Option<NodeID>> {
-        self.storage.modify_guest_with(id, f).await.unwrap()
-
+        f: impl Fn(Option<Guest>) -> Option<Guest> + Send + Sync,
+    ) -> Result<Guest> {
+        self.storage
+            .modify_guest_with(id, f)
+            .await
     }
+
 }
 
 #[cfg(test)]

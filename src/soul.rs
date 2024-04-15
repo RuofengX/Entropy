@@ -1,11 +1,13 @@
 use ahash::HashSet;
+use anyhow::Ok;
+use futures::{future::join_all, Future};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
     db::SaveStorage,
-    err::{Result, SoulError},
-    guest::GID,
+    err::{GuestError, Result, SoulError},
+    guest::{Guest, GID},
     node::{direction::Direction, NodeID},
     world::World,
 };
@@ -19,30 +21,64 @@ pub struct Soul {
     guests: HashSet<GID>,
 }
 
-pub struct WounderingSoul<'w, S: SaveStorage> {
+pub struct WonderingSoul<'w, S: SaveStorage> {
     soul: Soul,
     world: &'w World<S>,
 }
-impl<'w, S: SaveStorage> WounderingSoul<'w, S> {
-    pub(crate) fn contains_guest(&self, id: GID) -> bool {
+impl<'w, S: SaveStorage> WonderingSoul<'w, S> {
+    pub fn contains_guest(&self, id: GID) -> bool {
         self.soul.guests.contains(&id)
     }
 
-    pub(crate) async fn walk(&self, id: GID, direction: Direction) -> Result<NodeID> {
+    pub async fn get_guest(&self, id: GID) -> Result<Guest> {
+        if self.contains_guest(id) {
+            self.world.get_guest(id).await
+        } else {
+            Err(GuestError::NotExist(id).into())
+        }
+    }
+
+    pub async fn list_guests(&self) -> Vec<Guest> {
+        let rtn = join_all(self.soul.guests.iter().map(|id| self.world.get_guest(*id)));
+        rtn.await.into_iter().filter_map(|x| x.ok()).collect()
+    }
+
+    pub async fn list_phantom_guest(&self) -> Vec<GID> {
+        join_all(
+            self.soul
+                .guests
+                .iter()
+                .map(|id| async move { (id, self.world.contains_guest(*id).await) }),
+        )
+        .await
+        .iter()
+        .filter_map(|(&id, g)| if !g { Some(id) } else { None })
+        .collect()
+    }
+
+    pub async fn disconnect_guest(&mut self, id: GID) -> Result<Guest> {
+        let guest = self.get_guest(id).await?;
+        if self.soul.guests.take(&id).is_some() {
+            Ok(guest)
+        } else {
+            Err(SoulError::GuestNotConnected(id).into())
+        }
+    }
+
+    pub async fn walk(&self, id: GID, direction: Direction) -> Result<NodeID> {
         if !self.contains_guest(id) {
             return Err(SoulError::GuestNotConnected(id).into());
         }
         if self.world.contains_guest(id).await {
-            return Err(SoulError::GuestNotExistInWorld(id).into());
-        }
+            return Err(GuestError::NotExist(id).into());
+        };
 
         let rtn = self
             .world
             .modify_guest_with(id, |g| {
-                g.node_move(direction)?;
-            })
-            .await;
+                g.node_move(direction);
+            }
 
-        Ok(rtn)
+        todo!()
     }
 }
