@@ -1,10 +1,7 @@
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    err::{GuestError, Result},
-    node::{direction::Direction, NodeID},
-};
+use crate::node::NodeID;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize, Deserialize)]
 pub struct GID(pub u64);
@@ -39,13 +36,7 @@ impl Guest {
         }
     }
 
-    pub(crate) fn node_move(&mut self, to: Direction) -> Result<Node> {
-        let now = self.energy;
-        let cost = self.walk_cost;
-        if now < cost {
-            return Err(GuestError::EnergyNotEnough("Walk", cost, now).into());
-        } else {
-            Ok(self.node.walk(to)?)
-        }
+    pub(crate) fn is_energy_enough(&mut self, cost: NotNan<f32>) -> bool {
+        self.energy >= cost
     }
 }

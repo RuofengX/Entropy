@@ -1,7 +1,6 @@
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
-use crate::err::{NodeError, Result};
 
 ///         ^U
 ///      LU MU RU
@@ -42,6 +41,7 @@ pub const ALL_DIRECTION: [(i16, i16); 9] = [
 pub struct NodeData(#[serde(with = "serde_bytes")] pub [u8; 1024]);
 impl NodeData {
     pub fn random() -> Self {
+        //FIXME: use sequence random
         let mut rtn = [0u8; 1024];
         thread_rng().fill(&mut rtn);
         Self(rtn)
@@ -65,10 +65,10 @@ impl NodeID {
 }
 
 impl NodeID {
-    pub(crate) fn walk(&mut self, direction: direction::Direction) -> Result<NodeID> {
-        self.0.wrapping_add(direction.0);
-        self.1.wrapping_add(direction.1);
-        Ok(self.clone())
+    pub(crate) fn walk(&mut self, direction: direction::Direction) -> NodeID {
+        self.0 = self.0.wrapping_add(direction.0);
+        self.1 = self.1.wrapping_add(direction.1);
+        self.clone()
     }
 }
 

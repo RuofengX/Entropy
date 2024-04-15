@@ -77,7 +77,7 @@ impl<S: SaveStorage> World<S> {
     pub(crate) async fn modify_guest_with(
         &self,
         id: GID,
-        f: impl Fn(Option<Guest>) -> Option<Guest> + Send + Sync,
+        f: impl Fn(&mut Guest) + Send + Sync,
     ) -> Result<Guest> {
         self.storage
             .modify_guest_with(id, f)

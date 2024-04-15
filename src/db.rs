@@ -37,7 +37,7 @@ pub trait SaveStorage: std::fmt::Debug + Sync + Send + Unpin {
     async fn modify_guest_with(
         &self,
         id: GID,
-        f: impl Fn(Option<Guest>) -> Option<Guest> + Send + Sync,
+        f: impl for<'g> Fn(&'g mut Guest) + Send + Sync,
     ) -> Result<Guest>;
 
     // SOULS
@@ -155,14 +155,19 @@ impl SaveStorage for SledStorage {
     async fn modify_guest_with(
         &self,
         id: GID,
-        f: impl Fn(Option<Guest>) -> Option<Guest> + Send + Sync,
+        f: impl for<'g> Fn(&'g mut Guest) + Send + Sync,
     ) -> Result<Guest> {
         if !self.contains_guest(id).await? {
             return Err(GuestError::NotExist(id).into());
         }
 
         self.guest
-            .update_and_fetch(&id, f)
+            .update_and_fetch(&id, |x| {
+                x.and_then(|mut g| {
+                    f(&mut g);
+                    Some(g)
+                })
+            })
             .map_err(|e| e.into()) // SledError -> Error
             .and_then(|x| x.ok_or(GuestError::NotExist(id).into())) // GuestError::NotExist -> Error
     }

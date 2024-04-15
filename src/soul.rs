@@ -1,8 +1,7 @@
 use ahash::HashSet;
 use anyhow::Ok;
-use futures::{future::join_all, Future};
+use futures::future::join_all;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 use crate::{
     db::SaveStorage,
@@ -65,7 +64,7 @@ impl<'w, S: SaveStorage> WonderingSoul<'w, S> {
         }
     }
 
-    pub async fn walk(&self, id: GID, direction: Direction) -> Result<NodeID> {
+    pub async fn walk(&self, id: GID, to: Direction) -> Result<NodeID> {
         if !self.contains_guest(id) {
             return Err(SoulError::GuestNotConnected(id).into());
         }
@@ -73,12 +72,14 @@ impl<'w, S: SaveStorage> WonderingSoul<'w, S> {
             return Err(GuestError::NotExist(id).into());
         };
 
-        let rtn = self
-            .world
+        self.world
             .modify_guest_with(id, |g| {
-                g.node_move(direction);
-            }
-
-        todo!()
+                if g.is_energy_enough(g.walk_cost) {
+                    g.energy -= g.walk_cost;
+                    g.node.walk(to);
+                }
+            })
+            .await
+            .map(|x| x.node)
     }
 }
