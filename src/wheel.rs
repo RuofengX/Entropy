@@ -1,8 +1,6 @@
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 
-use dashmap::DashMap;
-
-use crate::{db::SledStorage, soul::WonderingSoul, world::World};
+use crate::{db::SledStorage, world::World};
 
 pub struct WheelConfig {
     pub temporary: bool,
@@ -15,7 +13,6 @@ impl Default for WheelConfig {
 
 pub struct Wheel {
     pub world: World<SledStorage>,
-    pub souls: DashMap<String, WonderingSoul<SledStorage>, ahash::RandomState>,
 }
 
 impl Wheel {}

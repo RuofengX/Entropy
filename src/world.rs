@@ -31,7 +31,7 @@ impl<S: SaveStorage> World<S> {
 }
 impl<S: SaveStorage> Drop for World<S> {
     fn drop(&mut self) {
-        self.storage.flush();
+        self.storage.flush().unwrap();
     }
 }
 
@@ -44,7 +44,7 @@ impl<S: SaveStorage> World<S> {
     pub async fn spawn(&self) -> GID {
         let g_id = GID(self.count_guest().await);
         let g = Guest::spawn(g_id, NodeID(0, 0));
-        self.storage.save_guest(g_id, Some(&g));
+        self.storage.save_guest(g_id, Some(&g)).await.unwrap();
         g_id
     }
 
@@ -71,27 +71,26 @@ impl<S: SaveStorage> World<S> {
     }
 }
 
+#[cfg(test)]
 mod test {
-    #![allow(unused_imports)]
     use super::World;
     use crate::db::SaveStorage;
     use crate::db::SledStorage;
     use crate::guest::GID;
     use crate::node::NodeData;
     use crate::node::NodeID;
-    use std::sync::Arc;
 
     #[tokio::test]
     async fn test_sled() {
-        let sled = SledStorage::new(true).await.unwrap();
-        let w = World{storage: sled};
+        let sled = SledStorage::new("test_sled".into(), true).unwrap();
+        let w = World { storage: sled.clone() };
         assert_eq!(w.spawn().await, GID(0));
         assert_eq!(w.spawn().await, GID(1));
         assert_eq!(w.spawn().await, GID(2));
         let g1 = w.get_guest(GID(1)).await.unwrap().clone();
         drop(w);
 
-        let w = World{storage: sled};
+        let w = World { storage: sled };
         assert_eq!(w.spawn().await, GID(3));
         assert_eq!(w.spawn().await, GID(4));
         assert_eq!(w.spawn().await, GID(5));
@@ -102,8 +101,8 @@ mod test {
     #[tokio::test]
     async fn test_node() {
         // Create world
-        let sled = SledStorage::new(true).await.unwrap();
-        let w = World{storage: sled};
+        let sled = SledStorage::new("test_node".into(), true).unwrap();
+        let w = World { storage: sled.clone()};
 
         //  assert nodes_active length
         assert_eq!(w.storage.count_guests().await.unwrap(), 0);
@@ -112,7 +111,8 @@ mod test {
         // assert nodes' data is same after detach database
         let data1 = w.detect_node(NodeID(114, 514)).await;
         drop(w);
-        let w = World{storage: sled};
+
+        let w = World { storage: sled.clone()};
         let data2 = w.detect_node(NodeID(114, 514)).await;
         assert_eq!(data1, data2);
 
@@ -125,7 +125,8 @@ mod test {
         w.modify_node_with(NodeID(114, 514), temperature_minus_one)
             .await;
         drop(w);
-        let w = World{storage: sled};
+
+        let w = World { storage: sled.clone()};
         let tep2 = w.detect_node(NodeID(114, 514)).await.0[0];
 
         assert_eq!(tep1.saturating_sub(1), tep2);
@@ -133,14 +134,14 @@ mod test {
 
     #[tokio::test]
     async fn save_lot_nodes() {
-        let sled = SledStorage::new(true).await.unwrap();
-        let w = World{storage: sled};
-        let w = World::new(sled);
+        let sled = SledStorage::new("test_lot_nodes".into(), true).unwrap();
+        let w = World::new(sled.clone());
         for i in 0..1001 {
             w.detect_node(NodeID(i, i)).await;
         }
         drop(w);
-        let w = World{storage: sled};
+
+        let w = World::new(sled.clone());
         assert_eq!(w.storage.count_nodes().await.unwrap(), 1001);
     }
 }

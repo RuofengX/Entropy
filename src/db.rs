@@ -1,10 +1,11 @@
+use std::path::PathBuf;
+
 use async_trait::async_trait;
-use moka::ops::compute::Op;
 use thiserror::Error;
 use typed_sled::Tree;
 
 use crate::{
-    guest::{Guest, GuestError, GID},
+    guest::{Guest, GID},
     node::{Node, NodeID},
     soul::Soul,
 };
@@ -20,7 +21,11 @@ pub trait SaveStorage: std::fmt::Debug + Sync + Send + Unpin {
     async fn get_node(&self, id: NodeID) -> Result<Option<Node>>;
     async fn get_node_or_init(&self, id: NodeID) -> Result<Node>; // Auto init node if not exist
     async fn save_node(&self, id: NodeID, node: Option<&Node>) -> Result<()>;
-    async fn modify_node_with(&self, id: NodeID, f: impl Fn(&mut Node) + Send) -> Result<()>; // Auto init node if not exist
+    async fn modify_node_with(
+        &self,
+        id: NodeID,
+        f: impl for<'b> Fn(&'b mut Node) + Send + Sync,
+    ) -> Result<()>; // Auto init node if not exist
 
     // GUESTS
     async fn contains_guest(&self, id: GID) -> Result<bool>;
@@ -29,7 +34,11 @@ pub trait SaveStorage: std::fmt::Debug + Sync + Send + Unpin {
     async fn get_guest(&self, id: GID) -> Result<Option<Guest>>;
     async fn get_guests(&self) -> Result<Vec<Guest>>;
     async fn save_guest(&self, id: GID, guest: Option<&Guest>) -> Result<()>;
-    async fn modify_guest_with(&self, id: GID, f: impl Fn(&mut Guest) + Send) -> Result<()>;
+    async fn modify_guest_with(
+        &self,
+        id: GID,
+        f: impl for<'b> Fn(&'b mut Guest) + Send + Sync,
+    ) -> Result<()>;
 
     // SOULS
     async fn get_soul(&self, uid: String) -> Result<Option<Soul>>;
@@ -41,7 +50,7 @@ pub trait SaveStorage: std::fmt::Debug + Sync + Send + Unpin {
     async fn flush_async(&self) -> Result<()>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct SledStorage {
     // Select a specific namespace / database
     db: sled::Db,
@@ -51,12 +60,9 @@ pub(crate) struct SledStorage {
 }
 
 impl SledStorage {
-    pub(crate) async fn new(temporary: bool) -> Result<Self> {
+    pub(crate) fn new(path: PathBuf, temporary: bool) -> Result<Self> {
         // Create database connection
-        let db = sled::Config::new()
-            .path("./entropy.sled")
-            .temporary(temporary)
-            .open()?;
+        let db = sled::Config::new().path(path).temporary(temporary).open()?;
         let node = typed_sled::Tree::open(&db, "node");
         let guest = typed_sled::Tree::open(&db, "node");
         let soul = typed_sled::Tree::open(&db, "node");
@@ -101,9 +107,13 @@ impl SaveStorage for SledStorage {
             Ok(())
         }
     }
-    async fn modify_node_with(&self, id: NodeID, f: impl Fn(&mut Node) + Send) -> Result<()> {
+    async fn modify_node_with(
+        &self,
+        id: NodeID,
+        f: impl for<'b> Fn(&'b mut Node) + Send,
+    ) -> Result<()> {
         let full_f = |x: Option<Node>| -> Option<Node> {
-            let temp_node = x.unwrap_or_else(Node::generate_new);
+            let mut temp_node = x.unwrap_or_else(Node::generate_new);
             f(&mut temp_node);
             Some(temp_node)
         };
@@ -134,16 +144,21 @@ impl SaveStorage for SledStorage {
             Ok(())
         }
     }
-    async fn modify_guest_with(&self, id: GID, f: impl Fn(&mut Guest) + Send) -> Result<()> {
+    async fn modify_guest_with(
+        &self,
+        id: GID,
+        f: impl for<'b> Fn(&'b mut Guest) + Send + Sync,
+    ) -> Result<()> {
         let full_f = |x: Option<Guest>| -> Option<Guest> {
-            let guest = x.unwrap();
-            f(&mut guest);
-            Some(guest)
+            if let Some(mut guest) = x {
+                f(&mut guest);
+                Some(guest)
+            } else {
+                None
+            }
         };
-        self.get_guest(id).await.and_then(|x| {
-            self.guest.fetch_and_update(&id, full_f)?;
-            Ok(())
-        })
+        self.guest.fetch_and_update(&id, full_f)?;
+        Ok(())
     }
 
     // SOULS
