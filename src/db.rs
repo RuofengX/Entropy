@@ -18,7 +18,7 @@ pub trait SaveStorage: std::fmt::Debug + Sync + Send + Unpin {
     async fn contains_node(&self, id: NodeID) -> Result<bool>;
     async fn count_nodes(&self) -> Result<u32>;
 
-    async fn get_node(&self, id: NodeID) -> Result<Option<Node>>;
+    async fn get_node(&self, id: NodeID) -> Result<Node>;
     async fn get_node_or_init(&self, id: NodeID) -> Result<Node>; // Auto init node if not exist
     async fn save_node(&self, id: NodeID, node: Option<&Node>) -> Result<()>;
     async fn modify_node_with(
@@ -31,17 +31,17 @@ pub trait SaveStorage: std::fmt::Debug + Sync + Send + Unpin {
     async fn contains_guest(&self, id: GID) -> Result<bool>;
     async fn count_guests(&self) -> Result<u64>;
 
-    async fn get_guest(&self, id: GID) -> Result<Option<Guest>>;
+    async fn get_guest(&self, id: GID) -> Result<Guest>;
     async fn get_guests(&self) -> Result<Vec<Guest>>;
     async fn save_guest(&self, id: GID, guest: Option<&Guest>) -> Result<()>;
     async fn modify_guest_with(
         &self,
         id: GID,
-        f: impl for<'b> Fn(&'b mut Guest) + Send + Sync,
-    ) -> Result<()>;
+        f: impl for<'b> Fn(&'b mut Guest) -> Result<Guest> + Send + Sync,
+    ) -> Result<NodeID>;
 
     // SOULS
-    async fn get_soul(&self, uid: String) -> Result<Option<Soul>>;
+    async fn get_soul(&self, uid: String) -> Result<Soul>;
     async fn get_souls(&self) -> Result<Vec<Soul>>;
     async fn save_soul(&self, uid: String, soul: Option<Soul>) -> Result<()>;
 
@@ -147,8 +147,8 @@ impl SaveStorage for SledStorage {
     async fn modify_guest_with(
         &self,
         id: GID,
-        f: impl for<'b> Fn(&'b mut Guest) + Send + Sync,
-    ) -> Result<()> {
+        f: impl for<'b> Fn(&'b mut Guest) -> Option<Guest> + Send + Sync,
+    ) -> Result<Option<NodeID>> {
         let full_f = |x: Option<Guest>| -> Option<Guest> {
             if let Some(mut guest) = x {
                 f(&mut guest);
@@ -157,8 +157,8 @@ impl SaveStorage for SledStorage {
                 None
             }
         };
-        self.guest.fetch_and_update(&id, full_f)?;
-        Ok(())
+        let rtn = self.guest.update_and_fetch(&id, full_f)?.map(|n| n.node);
+        Ok(rtn)
     }
 
     // SOULS
@@ -192,9 +192,4 @@ impl SaveStorage for SledStorage {
     }
 }
 #[derive(Debug, Error)]
-pub enum DatabaseError {
-    #[error("未找到guest::{0:?}")]
-    GuestNotFound(GID),
-    #[error(transparent)]
-    SledError(#[from] sled::Error),
-}
+pub enum DatabaseError {}

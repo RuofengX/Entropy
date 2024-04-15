@@ -1,13 +1,11 @@
-use dashmap::DashSet;
-use futures::{future, TryFutureExt};
-use nanoid::nanoid;
+use ahash::HashSet;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use thiserror::Error;
 
 use crate::{
     db::SaveStorage,
-    guest::{self, Guest, GID},
+    err::{Result, SoulError},
+    guest::GID,
     node::{direction::Direction, NodeID},
     world::World,
 };
@@ -18,17 +16,33 @@ pub struct Soul {
     pub username: String,
     password: String,
     guest_quota: u64,
-    guests: DashSet<GID, ahash::RandomState>,
+    guests: HashSet<GID>,
 }
 
-#[derive(Error, Debug)]
-pub enum SoulError {
-    #[error("GID::{0:?} is not recorded in soul's memory")]
-    GuestNotConnected(GID),
-    #[error("guest with GID::{0:?} is recorded in soul's memory, but not found in physical world")]
-    GuestNotExistInWorld(GID),
-    #[error("guest quota::{0} has been exceeded")]
-    GuestQuotaExceeded(u64),
-    #[error(transparent)]
-    GuestError(#[from] guest::GuestError),
+pub struct WounderingSoul<'w, S: SaveStorage> {
+    soul: Soul,
+    world: &'w World<S>,
+}
+impl<'w, S: SaveStorage> WounderingSoul<'w, S> {
+    pub(crate) fn contains_guest(&self, id: GID) -> bool {
+        self.soul.guests.contains(&id)
+    }
+
+    pub(crate) async fn walk(&self, id: GID, direction: Direction) -> Result<NodeID> {
+        if !self.contains_guest(id) {
+            return Err(SoulError::GuestNotConnected(id).into());
+        }
+        if self.world.contains_guest(id).await {
+            return Err(SoulError::GuestNotExistInWorld(id).into());
+        }
+
+        let rtn = self
+            .world
+            .modify_guest_with(id, |g| {
+                g.node_move(direction)?;
+            })
+            .await;
+
+        Ok(rtn)
+    }
 }

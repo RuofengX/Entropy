@@ -1,12 +1,10 @@
-use dashmap::mapref::one::Ref;
-use tokio::sync::RwLock;
-
 use serde::{Deserialize, Serialize};
 
 use crate::db::SaveStorage;
 use crate::{
     guest::{Guest, GID},
     node::{NodeData, NodeID},
+    err::Result,
 };
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize, Deserialize)]
@@ -43,14 +41,14 @@ impl<S: SaveStorage> World<S> {
     /// Admin usage
     pub async fn spawn(&self) -> GID {
         let g_id = GID(self.count_guest().await);
-        let g = Guest::spawn(g_id, NodeID(0, 0));
+        let g = Guest::new(g_id, NodeID(0, 0));
         self.storage.save_guest(g_id, Some(&g)).await.unwrap();
         g_id
     }
 
     /// Soul usage
-    pub(crate) async fn get_guest(&self, id: GID) -> Option<Guest> {
-        self.storage.get_guest(id).await.unwrap()
+    pub(crate) async fn get_guest(&self, id: GID) -> Result<Guest> {
+        self.storage.get_guest(id).await
     }
 
     /// Soul usage
@@ -69,6 +67,21 @@ impl<S: SaveStorage> World<S> {
             .await
             .unwrap()
     }
+
+    /// Soul usage
+    pub(crate) async fn contains_guest(&self, id: GID) -> bool {
+        self.storage.contains_guest(id).await.unwrap()
+    }
+
+    /// Soul usage
+    pub(crate) async fn modify_guest_with(
+        &self,
+        id: GID,
+        f: impl Fn(&mut Guest) -> Result<()> + Send + Sync,
+    ) -> Result<Option<NodeID>> {
+        self.storage.modify_guest_with(id, f).await.unwrap()
+
+    }
 }
 
 #[cfg(test)]
@@ -83,7 +96,9 @@ mod test {
     #[tokio::test]
     async fn test_sled() {
         let sled = SledStorage::new("test_sled".into(), true).unwrap();
-        let w = World { storage: sled.clone() };
+        let w = World {
+            storage: sled.clone(),
+        };
         assert_eq!(w.spawn().await, GID(0));
         assert_eq!(w.spawn().await, GID(1));
         assert_eq!(w.spawn().await, GID(2));
@@ -102,7 +117,9 @@ mod test {
     async fn test_node() {
         // Create world
         let sled = SledStorage::new("test_node".into(), true).unwrap();
-        let w = World { storage: sled.clone()};
+        let w = World {
+            storage: sled.clone(),
+        };
 
         //  assert nodes_active length
         assert_eq!(w.storage.count_guests().await.unwrap(), 0);
@@ -112,7 +129,9 @@ mod test {
         let data1 = w.detect_node(NodeID(114, 514)).await;
         drop(w);
 
-        let w = World { storage: sled.clone()};
+        let w = World {
+            storage: sled.clone(),
+        };
         let data2 = w.detect_node(NodeID(114, 514)).await;
         assert_eq!(data1, data2);
 
@@ -126,7 +145,9 @@ mod test {
             .await;
         drop(w);
 
-        let w = World { storage: sled.clone()};
+        let w = World {
+            storage: sled.clone(),
+        };
         let tep2 = w.detect_node(NodeID(114, 514)).await.0[0];
 
         assert_eq!(tep1.saturating_sub(1), tep2);

@@ -4,6 +4,7 @@ pub mod soul;
 pub mod wheel;
 pub mod world;
 mod db;
+mod err;
 
 use warp::Filter;
 

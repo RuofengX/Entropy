@@ -1,7 +1,7 @@
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
-use thiserror::Error;
+use crate::err::{NodeError, Result};
 
 ///         ^U
 ///      LU MU RU
@@ -65,10 +65,11 @@ impl NodeID {
 }
 
 impl NodeID {
-    pub(crate) fn walk(&mut self, direction: direction::Direction) -> Result<NodeID, NodeError> {
-        self.0 = self.0.checked_add(direction.0).ok_or(NodeError::Overflow)?;
-        self.1 = self.1.checked_add(direction.1).ok_or(NodeError::Overflow)?;
-        Ok(self.clone())
+    pub(crate) fn walk(&mut self, direction: direction::Direction) -> Result<NodeID> {
+        let mut buf = self.clone();
+        buf.0 = buf.0.checked_add(direction.0).ok_or(NodeError::IndexOverflow(*self).into())?;
+        buf.1 = buf.1.checked_add(direction.1).ok_or(NodeError::IndexOverflow(*self).into())?;
+        Ok(buf)
     }
 }
 
@@ -143,12 +144,4 @@ mod test {
             bincode::serde::decode_from_slice(&encoded_bin, bincode::config::standard()).unwrap();
         assert_eq!(node, node4);
     }
-}
-
-#[derive(Debug, Error)]
-pub enum NodeError {
-    #[error(
-        "node index overflow! node index is limited in i16, which should be in range [-32_768i16, 32_767i16]"
-    )]
-    Overflow,
 }
