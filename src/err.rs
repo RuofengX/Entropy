@@ -10,6 +10,29 @@ use crate::{guest::GID, node::NodeID};
 
 pub(crate) type Result<T> = std::result::Result<T, anyhow::Error>;
 
+pub(crate) enum AxumResponse<T: Serialize> {
+    Ok(T),
+    Err(anyhow::Error),
+}
+impl<T: Serialize> From<Result<T>> for AxumResponse<T> {
+    fn from(value: Result<T>) -> Self {
+        match value {
+            Ok(x) => AxumResponse::Ok(x),
+            Err(e) => AxumResponse::Err(e),
+        }
+    }
+}
+impl<T: Serialize> IntoResponse for AxumResponse<T> {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            Self::Ok(x) => Response::builder().status(200).body(
+                Json(x)
+            )?.,
+            _
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum Error {
     #[error(transparent)]
@@ -60,23 +83,4 @@ pub enum SoulError {
 
     #[error("guest quota::{0} has been exceeded")]
     GuestQuotaExceeded(u64),
-}
-
-pub(crate) struct AxumResponse<T: Serialize> {
-    status: StatusCode,
-    body: T,
-}
-impl<T: Serialize> From<Result<T>> for AxumResponse<T> {
-    fn from(value: Result<T>) -> Self {
-        match value {
-            Ok(x) => Self {
-                status: StatusCode::OK,
-                body: x,
-            },
-            Err(e) => Self {
-                status: StatusCode::INTERNAL_SERVER_ERROR,
-                body: format!("{e:?}"),
-            },
-        }
-    }
 }
