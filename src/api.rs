@@ -1,14 +1,48 @@
 use std::sync::Arc;
 
-use axum::{extract::State, response::Response};
+use axum::{
+    extract::{Query, State},
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Json,
+    debug_handler,
+};
+use serde::Deserialize;
+use serde_json::Value;
 
-use crate::{db::SaveStorage, err::Result, guest::GID, world::World};
+use crate::{db::SledStorage, guest::GID, world::World};
 
-pub async fn contains_guest<S: SaveStorage> (
-    State(world): State<Arc<World<S>>>,
+pub(crate) struct ApiError(anyhow::Error);
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", self.0)).into_response()
+    }
+}
+
+// This enables using `?` on functions that return `Result<_, anyhow::Error>` to turn them into
+// `Result<_, AppError>`. That way you don't need to do that manually.
+impl<E> From<E> for ApiError
+where
+    E: Into<anyhow::Error>,
+{
+    fn from(err: E) -> Self {
+        Self(err.into())
+    }
+}
+
+type Result<T> = std::result::Result<T, ApiError>;
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct SoulGuestIndex {
     uid: String,
-    id: GID,
-) -> Response<T> {
-    let s = world.get_soul(uid).await?;
-    Ok(s.contains_guest(id))
+    gid: GID,
+}
+
+#[debug_handler]
+pub(crate) async fn contains_guest(
+    Query(guest): Query<SoulGuestIndex>,
+    State(world): State<Arc<World<SledStorage>>>,
+) -> Result<Json<Value>> {
+    let s = world.get_soul(guest.uid).await?;
+    Ok(Json(serde_json::to_value(s.contains_guest(guest.gid))?))
 }
