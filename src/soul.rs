@@ -1,5 +1,5 @@
 use ahash::HashSet;
-use anyhow::Ok;
+use anyhow::{bail, Ok};
 use futures::future::join_all;
 use serde::{Deserialize, Serialize};
 
@@ -72,8 +72,19 @@ impl<'w, S: SaveStorage> WonderingSoul<'w, S> {
             return Err(GuestError::NotExist(id).into());
         };
 
+        // Pre check energy is good, return error
+        let g = self.world.get_guest(id).await?;
+        if !g.is_energy_enough(g.walk_cost) {
+            bail!(GuestError::EnergyNotEnough {
+                op_name: "walk",
+                require: g.walk_cost,
+                left: g.energy
+            })
+        }
+
         self.world
             .modify_guest_with(id, |g| {
+                // Also check energy, but ignore error
                 if g.is_energy_enough(g.walk_cost) {
                     g.energy -= g.walk_cost;
                     g.node.walk(to);

@@ -36,7 +36,7 @@ impl Guest {
         }
     }
 
-    pub(crate) fn is_energy_enough(&mut self, cost: NotNan<f32>) -> bool {
+    pub(crate) fn is_energy_enough(&self, cost: NotNan<f32>) -> bool {
         self.energy >= cost
     }
 }

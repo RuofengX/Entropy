@@ -30,9 +30,12 @@ pub enum GuestError {
     #[error("guest with GID::{0:?} not found in physical world")]
     NotExist(GID),
 
-    #[error("energy is not enough for operation::{0}, {1} needed, {2} left")]
-    EnergyNotEnough(&'static str, NotNan<f32>, NotNan<f32>),
-
+    #[error("energy is not enough for operation::{op_name}, {require} needed, {left} left")]
+    EnergyNotEnough {
+        op_name: &'static str,
+        require: NotNan<f32>,
+        left: NotNan<f32>,
+    },
 }
 
 #[derive(Debug, thiserror::Error)]
