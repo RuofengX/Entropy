@@ -42,11 +42,6 @@ pub enum GuestError {
 pub enum NodeError {
     #[error("node with NodeID::{0:?} not found in physical world")]
     NotExist(NodeID),
-
-    #[error(
-        "node index::{0:?} overflow! node index is limited in i16, which should be in range [-32_768i16, 32_767i16]"
-    )]
-    IndexOverflow(NodeID),
 }
 
 #[derive(Debug, thiserror::Error)]
