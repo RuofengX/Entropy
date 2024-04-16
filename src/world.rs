@@ -1,7 +1,8 @@
+use anyhow::Ok;
 use serde::{Deserialize, Serialize};
 
 use crate::db::SaveStorage;
-use crate::soul::WonderingSoul;
+use crate::soul::{Soul, WonderingSoul};
 use crate::{
     err::Result,
     guest::{Guest, GID},
@@ -45,6 +46,13 @@ impl<S: SaveStorage> World<S> {
         let g = Guest::new(g_id, NodeID(0, 0));
         self.storage.save_guest(g_id, Some(&g)).await.unwrap();
         g_id
+    }
+
+    /// Soul usage
+    pub(crate) async fn register_soul(&self, username: String, password: String) -> Result<Soul> {
+        let s = Soul::new(self, username, password).await;
+        self.storage.save_soul(s.uid.clone(), Some(s.clone()));
+        Ok(s)
     }
 
     /// Soul usage

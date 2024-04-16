@@ -1,6 +1,7 @@
 use ahash::HashSet;
 use anyhow::{bail, Ok};
 use futures::future::join_all;
+use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -11,13 +12,26 @@ use crate::{
     world::World,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Soul {
     pub uid: String,
     pub username: String,
     password: String,
     guest_quota: u64,
     guests: HashSet<GID>,
+}
+impl Soul {
+    pub async fn new<S: SaveStorage>(world: &World<S>, username: String, password: String) -> Self {
+        let g = world.spawn().await;
+        let guests = HashSet::from_iter(vec![g]);
+        Self {
+            uid: nanoid!(),
+            username,
+            password,
+            guest_quota: 1,
+            guests,
+        }
+    }
 }
 
 pub struct WonderingSoul<'w, S: SaveStorage> {
