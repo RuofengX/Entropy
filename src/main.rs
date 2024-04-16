@@ -1,17 +1,23 @@
+mod db;
+mod err;
 mod guest;
 pub mod node;
 pub mod soul;
-pub mod wheel;
 pub mod world;
-mod db;
-mod err;
+pub mod api;
 
-use warp::Filter;
+use std::sync::Arc;
+
+use axum::{extract::State, routing::get, Router};
+use db::SledStorage;
+use soul::WonderingSoul;
+use world::World;
 
 #[tokio::main]
 async fn main() {
-    // GET /hello/warp => 200 OK with body "Hello, warp!"
-    let hello: _ = warp::path!("hello" / String).map(|name| format!("Hello, {}!", name));
-
-    warp::serve(hello).run(([127, 0, 0, 1], 3030)).await;
+    let sled_db = SledStorage::new("entropy.sled".into(), false).unwrap();
+    let shared_world = Arc::new(World::new(sled_db));
+    let app = Router::new()
+        .route("/contains", get(api::contains_guest))
+        .with_state(shared_world);
 }

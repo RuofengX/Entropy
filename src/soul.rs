@@ -25,6 +25,10 @@ pub struct WonderingSoul<'w, S: SaveStorage> {
     world: &'w World<S>,
 }
 impl<'w, S: SaveStorage> WonderingSoul<'w, S> {
+    pub fn new(world: &'w World<S>, soul: Soul) -> Self {
+        Self { soul, world }
+    }
+
     pub fn contains_guest(&self, id: GID) -> bool {
         self.soul.guests.contains(&id)
     }

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::db::SaveStorage;
+use crate::soul::WonderingSoul;
 use crate::{
     err::Result,
     guest::{Guest, GID},
@@ -47,6 +48,11 @@ impl<S: SaveStorage> World<S> {
     }
 
     /// Soul usage
+    pub(crate) async fn get_soul(&self, uid: String) -> Result<WonderingSoul<S>> {
+        Ok(WonderingSoul::new(&self, self.storage.get_soul(uid).await?))
+    }
+
+    /// Soul usage
     pub(crate) async fn get_guest(&self, id: GID) -> Result<Guest> {
         self.storage.get_guest(id).await
     }
@@ -79,11 +85,8 @@ impl<S: SaveStorage> World<S> {
         id: GID,
         f: impl Fn(&mut Guest) + Send + Sync,
     ) -> Result<Guest> {
-        self.storage
-            .modify_guest_with(id, f)
-            .await
+        self.storage.modify_guest_with(id, f).await
     }
-
 }
 
 #[cfg(test)]

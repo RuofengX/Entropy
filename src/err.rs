@@ -1,4 +1,10 @@
+use axum::{
+    http::{Response, StatusCode},
+    response::IntoResponse,
+    Json,
+};
 use ordered_float::NotNan;
+use serde::Serialize;
 
 use crate::{guest::GID, node::NodeID};
 
@@ -54,4 +60,23 @@ pub enum SoulError {
 
     #[error("guest quota::{0} has been exceeded")]
     GuestQuotaExceeded(u64),
+}
+
+pub(crate) struct AxumResponse<T: Serialize> {
+    status: StatusCode,
+    body: T,
+}
+impl<T: Serialize> From<Result<T>> for AxumResponse<T> {
+    fn from(value: Result<T>) -> Self {
+        match value {
+            Ok(x) => Self {
+                status: StatusCode::OK,
+                body: x,
+            },
+            Err(e) => Self {
+                status: StatusCode::INTERNAL_SERVER_ERROR,
+                body: format!("{e:?}"),
+            },
+        }
+    }
 }

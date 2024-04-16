@@ -9,6 +9,7 @@ edition = "2021"
 ahash = { version = "0.8.11", features = ["serde"] }
 anyhow = "1.0.82"
 async-trait = "0.1.80"
+axum = "0.7.5"
 bincode = { version = "2.0.0-rc.3", features = ["serde"] }
 dashmap = { version = "5.5.3", features = ["serde"] }
 dbgprint = "0.1.0"
@@ -17,7 +18,7 @@ moka = { version = "0.12.5", features = ["future"] }
 nanoid = "0.4.0"
 ordered-float = { version = "4.2.0", features = ["serde"] }
 rand = "0.8.5"
-serde = { version = "1.0.197", features = ["derive"] }
+serde = { version = "1.0.197", features = ["derive", "alloc"] }
 serde-pickle = "1.1.1"
 serde_bytes = "0.11.14"
 serde_json = "1.0.114"
@@ -25,7 +26,6 @@ sled = { version = "0.34.7" }
 thiserror = "1.0.58"
 tokio = { version = "1.37.0", features = ["full"] }
 typed-sled = "0.2.3"
-warp = "0.3.7"
 
 [package.metadata.cargo-machete]
 ignored = ["serde_bytes"]
