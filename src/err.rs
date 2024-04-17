@@ -1,6 +1,6 @@
 use ordered_float::NotNan;
 
-use crate::{guest::GID, };
+use crate::guest::GID;
 
 pub(crate) type Result<T> = std::result::Result<T, anyhow::Error>;
 
@@ -29,7 +29,6 @@ pub(crate) enum DatabaseError {
 pub enum GuestError {
     // #[error("guest with GID::{0:?} not found in physical world")]
     // NotExist(GID),
-
     #[error("energy is not enough for operation::{op_name}, {require} needed, {left} left")]
     EnergyNotEnough {
         op_name: &'static str,
@@ -48,7 +47,6 @@ pub enum NodeError {
 pub enum SoulError {
     // #[error("Soul with uid::{0} not exists")]
     // NotExist(String),
-
     #[error("GID::{0:?} is not recorded in soul's memory")]
     GuestNotConnected(GID),
 

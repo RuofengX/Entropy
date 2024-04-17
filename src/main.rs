@@ -17,8 +17,8 @@ async fn main() {
     let sled_db = Storage::new("entropy.sled".into(), false).unwrap();
     let shared_world = Arc::new(World::new(sled_db));
     let router = Router::new()
-        .route("/contains", get(api::contains_guest))
         .route("/register", get(api::register_soul))
+        .route("/contains", get(api::contains_guest))
         .with_state(shared_world);
 
     // run our app with hyper, listening globally on port 3000
