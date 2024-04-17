@@ -1,6 +1,9 @@
-use anyhow::Ok;
+use std::convert::Infallible;
+
+use anyhow::{Error, Ok};
 use serde::{Deserialize, Serialize};
 
+use crate::api::SoulCred;
 use crate::db::SaveStorage;
 use crate::soul::{Soul, WonderingSoul};
 use crate::{
@@ -19,7 +22,7 @@ impl WorldID {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct World<S: SaveStorage> {
     pub storage: S,
 }
@@ -49,15 +52,28 @@ impl<S: SaveStorage> World<S> {
     }
 
     /// Soul usage
-    pub(crate) async fn register_soul(&self, username: String, pw_hash: Vec<u8>) -> Result<Soul> {
-        let s = Soul::new(self, username, pw_hash).await;
-        self.storage.save_soul(s.uid.clone(), Some(s.clone())).await?;
+    pub(crate) async fn register_soul(&self, name: String, pw_hash: Vec<u8>) -> Result<Soul> {
+        let s = Soul::new(self, name, pw_hash).await;
+        self.storage
+            .save_soul(&s.uid, Some(s.clone()))
+            .await?;
         Ok(s)
     }
 
     /// Soul usage
-    pub(crate) async fn get_soul(&self, uid: String) -> Result<WonderingSoul<S>> {
+    pub(crate) async fn get_wondering_soul(&self, uid: &String) -> Result<WonderingSoul<S>> {
         Ok(WonderingSoul::new(&self, self.storage.get_soul(uid).await?))
+    }
+
+    pub(crate) async fn get_soul(&self, uid: &String) -> Result<Soul> {
+        Ok(self.storage.get_soul(uid).await?)
+    }
+
+    pub(crate) async fn varify_soul(&self, cred: &SoulCred) -> Result<bool> {
+        self.storage
+            .get_soul(&cred.uid)
+            .await
+            .map(|true_soul| true_soul.pw_hash == cred.pw_hash)
     }
 
     /// Soul usage

@@ -41,9 +41,9 @@ pub trait SaveStorage: std::fmt::Debug + Sync + Send + Unpin {
     ) -> Result<Guest>;
 
     // SOULS
-    async fn get_soul(&self, uid: String) -> Result<Soul>;
+    async fn get_soul(&self, uid: &String) -> Result<Soul>;
     async fn get_souls(&self) -> Result<Vec<Soul>>;
-    async fn save_soul(&self, uid: String, soul: Option<Soul>) -> Result<()>;
+    async fn save_soul(&self, uid: &String, soul: Option<Soul>) -> Result<()>;
 
     // META
     fn flush(&self) -> Result<()>;
@@ -173,13 +173,13 @@ impl SaveStorage for SledStorage {
     }
 
     // SOULS
-    async fn get_soul(&self, uid: String) -> Result<Soul> {
-        self.soul.get(&uid)?.ok_or(SoulError::NotExist(uid).into())
+    async fn get_soul(&self, uid: &String) -> Result<Soul> {
+        self.soul.get(&uid)?.ok_or(SoulError::NotExist(uid.clone()).into())
     }
     async fn get_souls(&self) -> Result<Vec<Soul>> {
         Ok(self.soul.iter().values().filter_map(|x| x.ok()).collect())
     }
-    async fn save_soul(&self, uid: String, soul: Option<Soul>) -> Result<()> {
+    async fn save_soul(&self, uid: &String, soul: Option<Soul>) -> Result<()> {
         if let Some(soul) = soul {
             self.soul
                 .insert(&uid, &soul)

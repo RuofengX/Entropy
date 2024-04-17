@@ -15,18 +15,18 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Soul {
     pub uid: String,
-    pub username: String,
-    pw_hash: Vec<u8>,
+    pub name: String,
+    pub pw_hash: Vec<u8>,
     guest_quota: u64,
     guests: HashSet<GID>,
 }
 impl Soul {
-    pub async fn new<S: SaveStorage>(world: &World<S>, username: String, pw_hash: Vec<u8>) -> Self {
+    pub async fn new<S: SaveStorage>(world: &World<S>, name: String, pw_hash: Vec<u8>) -> Self {
         let g = world.spawn().await;
         let guests = HashSet::from_iter(vec![g]);
         Self {
             uid: nanoid!(),
-            username,
+            name,
             pw_hash,
             guest_quota: 1,
             guests,
