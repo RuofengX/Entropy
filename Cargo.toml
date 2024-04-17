@@ -2,6 +2,8 @@
 name = "entropy"
 version = "0.1.0"
 edition = "2021"
+description = "A game serve as RESTful"
+license-file = "LICENSE"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -12,10 +14,7 @@ async-trait = "0.1.80"
 axum = { version = "0.7.5", features = ["query", "macros"] }
 axum-login = "0.15.1"
 bincode = { version = "2.0.0-rc.3", features = ["serde"] }
-dashmap = { version = "5.5.3", features = ["serde"] }
-dbgprint = "0.1.0"
 futures = "0.3.30"
-moka = { version = "0.12.5", features = ["future"] }
 nanoid = "0.4.0"
 ordered-float = { version = "4.2.0", features = ["serde"] }
 rand = "0.8.5"
