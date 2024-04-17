@@ -10,7 +10,7 @@ use axum::{
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::{db::SledStorage, guest::GID, soul::Soul, world::World};
+use crate::{db::SledStorage, guest::GID, world::World};
 
 pub(crate) struct ApiError(anyhow::Error);
 impl IntoResponse for ApiError {
@@ -33,9 +33,9 @@ where
 type Result<T> = std::result::Result<T, ApiError>;
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct SoulRegister {
+pub(crate) struct SoulUser {
     username: String,
-    password: String,
+    pw_hash: Vec<u8>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -46,11 +46,11 @@ pub(crate) struct SoulGuestIndex {
 
 #[debug_handler]
 pub(crate) async fn register_soul(
-    Query(soul): Query<SoulRegister>,
+    Query(soul): Query<SoulUser>,
     State(world): State<Arc<World<SledStorage>>>,
 ) -> Result<Json<Value>> {
     Ok(Json(serde_json::to_value(
-        world.register_soul(soul.username, soul.password).await?,
+        world.register_soul(soul.username, soul.pw_hash).await?,
     )?))
 }
 

@@ -16,18 +16,18 @@ use crate::{
 pub struct Soul {
     pub uid: String,
     pub username: String,
-    password: String,
+    pw_hash: Vec<u8>,
     guest_quota: u64,
     guests: HashSet<GID>,
 }
 impl Soul {
-    pub async fn new<S: SaveStorage>(world: &World<S>, username: String, password: String) -> Self {
+    pub async fn new<S: SaveStorage>(world: &World<S>, username: String, pw_hash: Vec<u8>) -> Self {
         let g = world.spawn().await;
         let guests = HashSet::from_iter(vec![g]);
         Self {
             uid: nanoid!(),
             username,
-            password,
+            pw_hash,
             guest_quota: 1,
             guests,
         }

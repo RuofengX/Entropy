@@ -49,9 +49,9 @@ impl<S: SaveStorage> World<S> {
     }
 
     /// Soul usage
-    pub(crate) async fn register_soul(&self, username: String, password: String) -> Result<Soul> {
-        let s = Soul::new(self, username, password).await;
-        self.storage.save_soul(s.uid.clone(), Some(s.clone()));
+    pub(crate) async fn register_soul(&self, username: String, pw_hash: Vec<u8>) -> Result<Soul> {
+        let s = Soul::new(self, username, pw_hash).await;
+        self.storage.save_soul(s.uid.clone(), Some(s.clone())).await?;
         Ok(s)
     }
 
