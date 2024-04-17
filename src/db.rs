@@ -6,12 +6,13 @@ use thiserror::Error;
 use typed_sled::Tree;
 
 use crate::{
-    err::{GuestError, NodeError, Result, SoulError},
+    err::Result,
     guest::{Guest, GID},
     node::{Node, NodeID},
     soul::Soul,
 };
 
+#[deprecated]
 #[async_trait]
 pub trait SaveStorage: std::fmt::Debug + Sync + Send + Unpin {
     // NODES
@@ -51,7 +52,7 @@ pub trait SaveStorage: std::fmt::Debug + Sync + Send + Unpin {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct SledStorage {
+pub struct Storage {
     // Select a specific namespace / database
     db: sled::Db,
     node: Tree<NodeID, Node>,
@@ -59,7 +60,7 @@ pub(crate) struct SledStorage {
     soul: Tree<String, Soul>,
 }
 
-impl SledStorage {
+impl Storage {
     pub(crate) fn new(path: PathBuf, temporary: bool) -> Result<Self> {
         // Create database connection
         let db = sled::Config::new().path(path).temporary(temporary).open()?;
@@ -76,20 +77,19 @@ impl SledStorage {
     }
 }
 
-#[async_trait]
-impl SaveStorage for SledStorage {
-    async fn contains_node(&self, id: NodeID) -> Result<bool> {
+impl Storage {
+    pub async fn contains_node(&self, id: NodeID) -> Result<bool> {
         self.node.contains_key(&id).map_err(|x| x.into())
     }
-    async fn count_nodes(&self) -> Result<u32> {
+    pub async fn count_nodes(&self) -> Result<u32> {
         Ok(self.node.len() as u32)
     }
 
-    async fn get_node(&self, id: NodeID) -> Result<Option<Node>> {
+    pub async fn get_node(&self, id: NodeID) -> Result<Option<Node>> {
         self.node.get(&id).map_err(|x| x.into())
     }
     // Auto init node if not exist
-    async fn get_node_or_init(&self, id: NodeID) -> Result<Node> {
+    pub async fn get_node_or_init(&self, id: NodeID) -> Result<Node> {
         if let Some(node) = self.get_node(id).await? {
             Ok(node)
         } else {
@@ -98,7 +98,7 @@ impl SaveStorage for SledStorage {
             Ok(node)
         }
     }
-    async fn save_node(&self, id: NodeID, node: Option<&Node>) -> Result<()> {
+    pub async fn save_node(&self, id: NodeID, node: Option<&Node>) -> Result<()> {
         if let Some(node) = node {
             self.node.insert(&id, node)?;
             Ok(())
@@ -107,43 +107,37 @@ impl SaveStorage for SledStorage {
             Ok(())
         }
     }
-    async fn modify_node_with(
+    pub async fn modify_node_with(
         &self,
         id: NodeID,
         f: impl for<'b> Fn(&'b mut Node) + Send,
-    ) -> Result<Node> {
+    ) -> Result<Option<Node>> {
         let full_f = |x: Option<Node>| -> Option<Node> {
             let mut temp_node = x.unwrap_or_else(Node::generate_new);
             f(&mut temp_node);
             Some(temp_node)
         };
         let rtn = self.node.update_and_fetch(&id, full_f)?;
-        if let Some(node) = rtn {
-            Ok(node)
-        } else {
-            Err(NodeError::NotExist(id).into())
-        }
+        Ok(rtn)
     }
 
     // GUESTS
-    async fn contains_guest(&self, id: GID) -> Result<bool> {
+    pub async fn contains_guest(&self, id: GID) -> Result<bool> {
         self.guest.contains_key(&id).map_err(|x| x.into())
     }
-    async fn count_guests(&self) -> Result<u64> {
+    pub async fn count_guests(&self) -> Result<u64> {
         Ok(self.guest.len() as u64)
     }
 
-    async fn get_guest(&self, id: GID) -> Result<Guest> {
-        if let Some(guest) = self.guest.get(&id)? {
-            Ok(guest)
-        } else {
-            Err(GuestError::NotExist(id).into())
-        }
+    pub async fn get_guest(&self, id: GID) -> Result<Option<Guest>> {
+        Ok(self.guest.get(&id)?)
     }
-    async fn get_guests(&self) -> Result<Vec<Guest>> {
+
+    pub async fn get_guests(&self) -> Result<Vec<Guest>> {
         Ok(self.guest.iter().values().filter_map(|x| x.ok()).collect())
     }
-    async fn save_guest(&self, id: GID, guest: Option<&Guest>) -> Result<()> {
+
+    pub async fn save_guest(&self, id: GID, guest: Option<&Guest>) -> Result<()> {
         if let Some(guest) = guest {
             self.guest.insert(&id, guest)?;
             Ok(())
@@ -152,34 +146,31 @@ impl SaveStorage for SledStorage {
             Ok(())
         }
     }
-    async fn modify_guest_with(
+    pub async fn modify_guest_with(
         &self,
         id: GID,
         f: impl for<'g> Fn(&'g mut Guest) + Send + Sync,
-    ) -> Result<Guest> {
+    ) -> Result<Option<Guest>> {
         if !self.contains_guest(id).await? {
-            return Err(GuestError::NotExist(id).into());
+            return Ok(None);
         }
 
-        self.guest
-            .update_and_fetch(&id, |x| {
-                x.and_then(|mut g| {
-                    f(&mut g);
-                    Some(g)
-                })
+        Ok(self.guest.update_and_fetch(&id, |x| {
+            x.and_then(|mut g| {
+                f(&mut g);
+                Some(g)
             })
-            .map_err(|e| e.into()) // SledError -> Error
-            .and_then(|x| x.ok_or(GuestError::NotExist(id).into())) // GuestError::NotExist -> Error
+        })?)
     }
 
     // SOULS
-    async fn get_soul(&self, uid: &String) -> Result<Soul> {
-        self.soul.get(&uid)?.ok_or(SoulError::NotExist(uid.clone()).into())
+    pub async fn get_soul(&self, uid: &String) -> Result<Option<Soul>> {
+        Ok(self.soul.get(&uid)?)
     }
-    async fn get_souls(&self) -> Result<Vec<Soul>> {
+    pub async fn get_souls(&self) -> Result<Vec<Soul>> {
         Ok(self.soul.iter().values().filter_map(|x| x.ok()).collect())
     }
-    async fn save_soul(&self, uid: &String, soul: Option<Soul>) -> Result<()> {
+    pub async fn save_soul(&self, uid: &String, soul: Option<Soul>) -> Result<()> {
         if let Some(soul) = soul {
             self.soul
                 .insert(&uid, &soul)
@@ -191,10 +182,10 @@ impl SaveStorage for SledStorage {
     }
 
     // META
-    fn flush(&self) -> Result<()> {
+    pub fn flush(&self) -> Result<()> {
         self.db.flush().map(|_| ()).map_err(|x| x.into())
     }
-    async fn flush_async(&self) -> Result<()> {
+    pub async fn flush_async(&self) -> Result<()> {
         self.db
             .flush_async()
             .await

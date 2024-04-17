@@ -9,12 +9,12 @@ pub mod world;
 use std::sync::Arc;
 
 use axum::{routing::get, Router};
-use db::SledStorage;
+use db::Storage;
 use world::World;
 
 #[tokio::main]
 async fn main() {
-    let sled_db = SledStorage::new("entropy.sled".into(), false).unwrap();
+    let sled_db = Storage::new("entropy.sled".into(), false).unwrap();
     let shared_world = Arc::new(World::new(sled_db));
     let router = Router::new()
         .route("/contains", get(api::contains_guest))
@@ -32,7 +32,7 @@ mod test {
 
     #[tokio::test]
     async fn create_default() {
-        let sled_db = SledStorage::new("entropy.sled".into(), false).unwrap();
+        let sled_db = Storage::new("entropy.sled".into(), false).unwrap();
         let shared_world = Arc::new(World::new(sled_db));
         if shared_world.get_guest(guest::GID(1)).await.is_ok() {
             println!("guest with id::1 exist");

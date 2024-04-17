@@ -1,10 +1,7 @@
-use std::convert::Infallible;
-
-use anyhow::{Error, Ok};
 use serde::{Deserialize, Serialize};
 
 use crate::api::SoulCred;
-use crate::db::SaveStorage;
+use crate::db::Storage;
 use crate::soul::{Soul, WonderingSoul};
 use crate::{
     err::Result,
@@ -23,22 +20,22 @@ impl WorldID {
 }
 
 #[derive(Debug, Clone)]
-pub struct World<S: SaveStorage> {
-    pub storage: S,
+pub struct World {
+    pub storage: Storage,
 }
 
-impl<S: SaveStorage> World<S> {
-    pub fn new(storage: S) -> World<S> {
+impl World {
+    pub fn new(storage: Storage) -> World {
         World { storage }
     }
 }
-impl<S: SaveStorage> Drop for World<S> {
+impl Drop for World {
     fn drop(&mut self) {
         self.storage.flush().unwrap();
     }
 }
 
-impl<S: SaveStorage> World<S> {
+impl World {
     /// Admin usage
     pub async fn count_guest(&self) -> u64 {
         self.storage.count_guests().await.unwrap()
@@ -52,63 +49,67 @@ impl<S: SaveStorage> World<S> {
     }
 
     /// Soul usage
-    pub(crate) async fn register_soul(&self, name: String, pw_hash: Vec<u8>) -> Result<Soul> {
+    pub async fn register_soul(&self, name: String, pw_hash: Vec<u8>) -> Result<Soul> {
         let s = Soul::new(self, name, pw_hash).await;
-        self.storage
-            .save_soul(&s.uid, Some(s.clone()))
-            .await?;
+        self.storage.save_soul(&s.uid, Some(s.clone())).await?;
         Ok(s)
     }
 
     /// Soul usage
-    pub(crate) async fn get_wondering_soul(&self, uid: &String) -> Result<WonderingSoul<S>> {
-        Ok(WonderingSoul::new(&self, self.storage.get_soul(uid).await?))
+    pub async fn get_wondering_soul(&self, uid: &String) -> Result<Option<WonderingSoul>> {
+        Ok(self
+            .storage
+            .get_soul(uid)
+            .await?
+            .and_then(|soul| Some(WonderingSoul::new(&self, soul))))
     }
 
-    pub(crate) async fn get_soul(&self, uid: &String) -> Result<Soul> {
+    pub async fn get_soul(&self, uid: &String) -> Result<Option<Soul>> {
         Ok(self.storage.get_soul(uid).await?)
     }
 
-    pub(crate) async fn varify_soul(&self, cred: &SoulCred) -> Result<bool> {
-        self.storage
+    pub async fn varify_soul(&self, cred: &SoulCred) -> Result<bool> {
+        Ok(self
+            .storage
             .get_soul(&cred.uid)
-            .await
-            .map(|true_soul| true_soul.pw_hash == cred.pw_hash)
+            .await?
+            .is_some_and(|true_soul| true_soul.pw_hash == cred.pw_hash))
     }
 
     /// Soul usage
-    pub(crate) async fn get_guest(&self, id: GID) -> Result<Guest> {
+    pub async fn get_guest(&self, id: GID) -> Result<Option<Guest>> {
         self.storage.get_guest(id).await
     }
 
     /// Soul usage
-    pub(crate) async fn detect_node(&self, id: NodeID) -> NodeData {
+    pub async fn detect_node(&self, id: NodeID) -> NodeData {
         self.storage.get_node_or_init(id).await.unwrap().data
     }
 
     /// Soul usage
-    pub(crate) async fn modify_node_with(
+    pub async fn modify_node_with(
         &self,
         id: NodeID,
         f: impl Fn(&mut NodeData) + Send + Sync,
-    ) -> Result<NodeData> {
-        self.storage
+    ) -> Result<Option<NodeData>> {
+        Ok(self
+            .storage
             .modify_node_with(id, |x| f(&mut x.data))
-            .await
-            .map(|n| n.data)
+            .await?
+            .and_then(|n| Some(n.data)))
     }
 
     /// Soul usage
-    pub(crate) async fn contains_guest(&self, id: GID) -> bool {
+    pub async fn contains_guest(&self, id: GID) -> bool {
         self.storage.contains_guest(id).await.unwrap()
     }
 
     /// Soul usage
-    pub(crate) async fn modify_guest_with(
+    pub async fn modify_guest_with(
         &self,
         id: GID,
         f: impl Fn(&mut Guest) + Send + Sync,
-    ) -> Result<Guest> {
+    ) -> Result<Option<Guest>> {
         self.storage.modify_guest_with(id, f).await
     }
 }
@@ -116,15 +117,14 @@ impl<S: SaveStorage> World<S> {
 #[cfg(test)]
 mod test {
     use super::World;
-    use crate::db::SaveStorage;
-    use crate::db::SledStorage;
+    use crate::db::Storage;
     use crate::guest::GID;
     use crate::node::NodeData;
     use crate::node::NodeID;
 
     #[tokio::test]
     async fn test_sled() {
-        let sled = SledStorage::new("test_sled".into(), true).unwrap();
+        let sled = Storage::new("test_sled".into(), true).unwrap();
         let w = World {
             storage: sled.clone(),
         };
@@ -145,7 +145,7 @@ mod test {
     #[tokio::test]
     async fn test_node() {
         // Create world
-        let sled = SledStorage::new("test_node".into(), true).unwrap();
+        let sled = Storage::new("test_node".into(), true).unwrap();
         let w = World {
             storage: sled.clone(),
         };
@@ -170,7 +170,8 @@ mod test {
         }
 
         let tep1 = w.detect_node(NodeID(114, 514)).await.0[0];
-        w.modify_node_with(NodeID(114, 514), temperature_minus_one)
+        let _ = w
+            .modify_node_with(NodeID(114, 514), temperature_minus_one)
             .await;
         drop(w);
 
@@ -184,7 +185,7 @@ mod test {
 
     #[tokio::test]
     async fn save_lot_nodes() {
-        let sled = SledStorage::new("test_lot_nodes".into(), true).unwrap();
+        let sled = Storage::new("test_lot_nodes".into(), true).unwrap();
         let w = World::new(sled.clone());
         for i in 0..1001 {
             w.detect_node(NodeID(i, i)).await;

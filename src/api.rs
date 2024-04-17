@@ -1,4 +1,4 @@
-use std::{convert::Infallible, sync::Arc};
+use std::sync::Arc;
 
 use axum::{
     async_trait, debug_handler,
@@ -8,38 +8,32 @@ use axum::{
     Json,
 };
 use axum_login::{AuthUser, AuthnBackend, UserId};
-use futures::TryFutureExt;
 use serde::Deserialize;
 use serde_json::Value;
+use thiserror::Error;
 
-use crate::{
-    db::{SaveStorage, SledStorage},
-    err::Error,
-    guest::GID,
-    soul::Soul,
-    world::World,
-};
+use crate::{guest::GID, soul::Soul, world::World};
 
-pub(crate) struct ApiError(anyhow::Error);
+type Result<T> = std::result::Result<T, ApiError>;
+
+#[derive(Debug, Error)]
+pub enum ApiError {
+    #[error("error when auth::{:?}", .0)]
+    AuthError(SoulCred),
+
+    #[error("error when serialize/deserialize json data")]
+    JsonParseError(#[from] serde_json::Error),
+
+    /// all the other error is from backend
+    #[error(transparent)]
+    BackendError(#[from] anyhow::Error),
+}
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", self.0)).into_response()
+        (StatusCode::INTERNAL_SERVER_ERROR, format!("{self}")).into_response()
     }
 }
-
-// This enables using `?` on functions that return `Result<_, anyhow::Error>` to turn them into
-// `Result<_, AppError>`. That way you don't need to do that manually.
-impl<E> From<E> for ApiError
-where
-    E: Into<anyhow::Error>,
-{
-    fn from(err: E) -> Self {
-        Self(err.into())
-    }
-}
-
-type Result<T> = std::result::Result<T, ApiError>;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct SoulCred {
@@ -60,7 +54,7 @@ impl AuthUser for Soul {
 }
 
 #[async_trait]
-impl<S: SaveStorage + Clone> AuthnBackend for World<S> {
+impl AuthnBackend for World {
     /// Authenticating user type.
     type User = Soul;
 
@@ -68,26 +62,20 @@ impl<S: SaveStorage + Clone> AuthnBackend for World<S> {
     type Credentials = SoulCred; // uid
 
     ///" An error which can occur during authentication and authorization."
-    type Error = Infallible;
+    type Error = ApiError;
 
     /// Authenticates the given credentials with the backend.
-    async fn authenticate(
-        &self,
-        cred: Self::Credentials,
-    ) -> std::result::Result<Option<Self::User>, Self::Error> {
-        std::result::Result::Ok(if self.varify_soul(&cred).await.unwrap_or(false) {
-            self.get_soul(&cred.uid).await.ok()
+    async fn authenticate(&self, cred: Self::Credentials) -> Result<Option<Self::User>> {
+        Ok(if self.varify_soul(&cred).await.unwrap_or(false) {
+            self.get_soul(&cred.uid).await?
         } else {
             None
         })
     }
 
     /// Gets the user by provided ID from the backend.
-    async fn get_user(
-        &self,
-        user_id: &UserId<Self>,
-    ) -> std::result::Result<Option<Self::User>, Self::Error> {
-        std::result::Result::Ok(self.get_soul(user_id).await.ok())
+    async fn get_user(&self, user_id: &UserId<Self>) -> Result<Option<Self::User>> {
+        Ok(self.get_soul(user_id).await?)
     }
 }
 
@@ -100,7 +88,7 @@ pub struct SoulGuestIndex {
 #[debug_handler]
 pub(crate) async fn register_soul(
     Query(soul): Query<SoulCred>,
-    State(world): State<Arc<World<SledStorage>>>,
+    State(world): State<Arc<World>>,
 ) -> Result<Json<Value>> {
     Ok(Json(serde_json::to_value(
         world.register_soul(soul.uid, soul.pw_hash).await?,
@@ -110,8 +98,15 @@ pub(crate) async fn register_soul(
 #[debug_handler]
 pub(crate) async fn contains_guest(
     Query(guest): Query<SoulGuestIndex>,
-    State(world): State<Arc<World<SledStorage>>>,
-) -> Result<Json<Value>> {
-    let s = world.get_wondering_soul(&guest.uid).await?;
-    Ok(Json(serde_json::to_value(s.contains_guest(guest.gid))?))
+    State(world): State<Arc<World>>,
+) -> Result<Json<Option<Value>>> {
+    Ok(
+        if let Some(wondering_soul) = world.get_wondering_soul(&guest.uid).await? {
+            Json(Some(serde_json::to_value(
+                wondering_soul.contains_guest(guest.gid),
+            )?))
+        } else {
+            Json(None)
+        },
+    )
 }
