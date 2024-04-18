@@ -66,7 +66,7 @@ impl AuthnBackend for World {
 
     /// Authenticates the given credentials with the backend.
     async fn authenticate(&self, cred: Self::Credentials) -> Result<Option<Self::User>> {
-        Ok(if self.varify_soul(&cred).await.unwrap_or(false) {
+        Ok(if self.verify_soul(&cred).await.unwrap_or(false) {
             self.get_soul(&cred.uid).await?
         } else {
             None

@@ -68,7 +68,7 @@ impl World {
         Ok(self.storage.get_soul(uid).await?)
     }
 
-    pub async fn varify_soul(&self, cred: &SoulCred) -> Result<bool> {
+    pub async fn verify_soul(&self, cred: &SoulCred) -> Result<bool> {
         Ok(self
             .storage
             .get_soul(&cred.uid)
