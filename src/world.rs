@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::api::SoulCred;
 use crate::db::Storage;
 use crate::soul::{Soul, WonderingSoul};
 use crate::{
@@ -49,9 +48,9 @@ impl World {
     }
 
     /// Soul usage
-    pub async fn register_soul(&self, name: String, pw_hash: Vec<u8>) -> Result<Soul> {
+    pub async fn register_soul(&self, name: String, pw_hash: String) -> Result<Soul> {
         let s = Soul::new(self, name, pw_hash).await;
-        self.storage.save_soul(&s.uid, Some(s.clone())).await?;
+        // self.storage.save_soul(&s.uid, Some(s.clone())).await?;
         Ok(s)
     }
 
@@ -68,12 +67,12 @@ impl World {
         Ok(self.storage.get_soul(uid).await?)
     }
 
-    pub async fn verify_soul(&self, cred: &SoulCred) -> Result<bool> {
+    pub async fn verify_soul(&self, uid: &String, pw_hash: &String) -> Result<bool> {
         Ok(self
             .storage
-            .get_soul(&cred.uid)
+            .get_soul(uid)
             .await?
-            .is_some_and(|true_soul| true_soul.pw_hash == cred.pw_hash))
+            .is_some_and(|true_soul| true_soul.pw_hash == *pw_hash))
     }
 
     /// Soul usage
@@ -111,6 +110,14 @@ impl World {
         f: impl Fn(&mut Guest) + Send + Sync,
     ) -> Result<Option<Guest>> {
         self.storage.modify_guest_with(id, f).await
+    }
+
+    pub async fn flush_async(&self) {
+        let _ = self.storage.flush_async().await;
+    }
+
+    pub fn flush(&self) {
+        let _ = self.storage.flush();
     }
 }
 

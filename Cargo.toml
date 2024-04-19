@@ -10,7 +10,7 @@ ahash = { version = "0.8.11", features = ["serde"] }
 anyhow = "1.0.82"
 async-trait = "0.1.80"
 axum = { version = "0.7.5", features = ["query", "macros"] }
-axum-login = "0.15.1"
+axum-auth = "0.7.0"
 bincode = { version = "2.0.0-rc.3", features = ["serde"] }
 dashmap = { version = "5.5.3", features = ["serde"] }
 dbgprint = "0.1.0"

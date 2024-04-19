@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Ok;
 use async_trait::async_trait;
-use thiserror::Error;
+use dbgprint::dbgeprintln;
 use typed_sled::Tree;
 
 use crate::{
@@ -11,45 +11,6 @@ use crate::{
     node::{Node, NodeID},
     soul::Soul,
 };
-
-#[deprecated]
-#[async_trait]
-pub trait SaveStorage: std::fmt::Debug + Sync + Send + Unpin {
-    // NODES
-    async fn contains_node(&self, id: NodeID) -> Result<bool>;
-    async fn count_nodes(&self) -> Result<u32>;
-
-    async fn get_node(&self, id: NodeID) -> Result<Option<Node>>;
-    async fn get_node_or_init(&self, id: NodeID) -> Result<Node>; // Auto init node if not exist
-    async fn save_node(&self, id: NodeID, node: Option<&Node>) -> Result<()>;
-    async fn modify_node_with(
-        &self,
-        id: NodeID,
-        f: impl for<'b> Fn(&'b mut Node) + Send + Sync,
-    ) -> Result<Node>; // Auto init node if not exist
-
-    // GUESTS
-    async fn contains_guest(&self, id: GID) -> Result<bool>;
-    async fn count_guests(&self) -> Result<u64>;
-
-    async fn get_guest(&self, id: GID) -> Result<Guest>;
-    async fn get_guests(&self) -> Result<Vec<Guest>>;
-    async fn save_guest(&self, id: GID, guest: Option<&Guest>) -> Result<()>;
-    async fn modify_guest_with(
-        &self,
-        id: GID,
-        f: impl for<'g> Fn(&'g mut Guest) + Send + Sync,
-    ) -> Result<Guest>;
-
-    // SOULS
-    async fn get_soul(&self, uid: &String) -> Result<Soul>;
-    async fn get_souls(&self) -> Result<Vec<Soul>>;
-    async fn save_soul(&self, uid: &String, soul: Option<Soul>) -> Result<()>;
-
-    // META
-    fn flush(&self) -> Result<()>;
-    async fn flush_async(&self) -> Result<()>;
-}
 
 #[derive(Debug, Clone)]
 pub struct Storage {
@@ -63,10 +24,15 @@ pub struct Storage {
 impl Storage {
     pub(crate) fn new(path: PathBuf, temporary: bool) -> Result<Self> {
         // Create database connection
-        let db = sled::Config::new().path(path).temporary(temporary).open()?;
+        let db = sled::Config::new()
+            .path(path)
+            .temporary(temporary)
+            .print_profile_on_drop(true)
+            .open()
+            .unwrap();
         let node = typed_sled::Tree::open(&db, "node");
-        let guest = typed_sled::Tree::open(&db, "node");
-        let soul = typed_sled::Tree::open(&db, "node");
+        let guest = typed_sled::Tree::open(&db, "guest");
+        let soul = typed_sled::Tree::open(&db, "soul");
 
         Ok(Self {
             db,
@@ -101,6 +67,7 @@ impl Storage {
     pub async fn save_node(&self, id: NodeID, node: Option<&Node>) -> Result<()> {
         if let Some(node) = node {
             self.node.insert(&id, node)?;
+            dbgeprintln!("[db] save_node::{:?}", node);
             Ok(())
         } else {
             self.node.remove(&id)?;
@@ -130,7 +97,7 @@ impl Storage {
     }
 
     pub async fn get_guest(&self, id: GID) -> Result<Option<Guest>> {
-        Ok(self.guest.get(&id)?)
+        Ok(dbg!(self.guest.get(&id)?))
     }
 
     pub async fn get_guests(&self) -> Result<Vec<Guest>> {
@@ -140,6 +107,8 @@ impl Storage {
     pub async fn save_guest(&self, id: GID, guest: Option<&Guest>) -> Result<()> {
         if let Some(guest) = guest {
             self.guest.insert(&id, guest)?;
+            debug_assert_eq!(self.guest.len() as u64, id.0 + 1);
+            dbgeprintln!("[db] save_guest::{:?}", guest);
             Ok(())
         } else {
             self.guest.remove(&id)?;
@@ -165,13 +134,14 @@ impl Storage {
 
     // SOULS
     pub async fn get_soul(&self, uid: &String) -> Result<Option<Soul>> {
-        Ok(self.soul.get(&uid)?)
+        Ok(dbg!(self.soul.get(&uid)?))
     }
     pub async fn get_souls(&self) -> Result<Vec<Soul>> {
         Ok(self.soul.iter().values().filter_map(|x| x.ok()).collect())
     }
     pub async fn save_soul(&self, uid: &String, soul: Option<Soul>) -> Result<()> {
         if let Some(soul) = soul {
+            dbgeprintln!("[db] save_soul::{:?}", soul);
             self.soul
                 .insert(&uid, &soul)
                 .map_err(|x| x.into())
@@ -193,5 +163,11 @@ impl Storage {
             .map_err(|x| x.into())
     }
 }
-#[derive(Debug, Error)]
-pub enum DatabaseError {}
+impl Drop for Storage {
+    fn drop(&mut self) {
+        println!("shutting down db");
+        let _ = self.flush();
+    }
+}
+
+// todo!("test db::save_soul and db::get_soul");

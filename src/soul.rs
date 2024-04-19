@@ -1,31 +1,28 @@
 use ahash::HashSet;
 use anyhow::{bail, Ok};
 use futures::future::join_all;
-use nanoid::nanoid;
+use nanoid::{alphabet::SAFE, nanoid};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    err::{GuestError, Result, SoulError},
-    guest::{Guest, GID},
-    node::direction::Direction,
-    world::World,
+    alphabet::ENTROPY_CHAR, err::{GuestError, Result, SoulError}, guest::{Guest, GID}, node::direction::Direction, world::World
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Soul {
-    pub uid: String,
     pub name: String,
-    pub pw_hash: Vec<u8>,
+    pub uid: String,
+    pub pw_hash: String,
     guest_quota: u64,
     guests: HashSet<GID>,
 }
 impl Soul {
-    pub async fn new(world: &World, name: String, pw_hash: Vec<u8>) -> Self {
+    pub async fn new(world: &World, name: String, pw_hash: String) -> Self {
         let g = world.spawn().await;
         let guests = HashSet::from_iter(vec![g]);
         Self {
-            uid: nanoid!(),
             name,
+            uid: nanoid!(22, &ENTROPY_CHAR),
             pw_hash,
             guest_quota: 1,
             guests,
