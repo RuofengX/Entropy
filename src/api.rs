@@ -56,7 +56,6 @@ pub(crate) async fn register_soul(
     Ok(Json(world.register_soul(name, pw_hash).await?))
 }
 
-//FIXME: SAVE OR GET SOUL NOT WORKING
 #[debug_handler]
 pub(crate) async fn contain_guest(
     AuthBasic((uid, pw_hash)): AuthBasic,
