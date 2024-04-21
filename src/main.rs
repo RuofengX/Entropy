@@ -15,9 +15,8 @@ use world::World;
 
 #[tokio::main]
 async fn main() {
-    let world = Arc::new(World {
-        storage: Storage::new("entropy.sled".into(), false).unwrap(),
-    });
+    let db = Storage::new("entropy.sled".into(), false).unwrap();
+    let world = Arc::new(World::new(db));
 
     let router = Router::new()
         .route("/register", get(api::register_soul))
@@ -34,21 +33,4 @@ async fn main() {
         })
         .await
         .unwrap();
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[tokio::test]
-    async fn create_default() {
-        let sled_db = Storage::new("entropy.sled".into(), false).unwrap();
-        let shared_world = World::new(sled_db);
-        if shared_world.get_guest(guest::GID(1)).await.is_ok() {
-            println!("guest with id::1 exist");
-        } else {
-            let id = shared_world.spawn().await;
-            println!("spawn guest with id::{:?}", id);
-        }
-    }
 }

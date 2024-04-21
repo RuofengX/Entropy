@@ -1,7 +1,6 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Ok;
-use async_trait::async_trait;
 use dbgprint::dbgeprintln;
 use typed_sled::Tree;
 
@@ -22,7 +21,7 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub(crate) fn new(path: PathBuf, temporary: bool) -> Result<Self> {
+    pub(crate) fn new(path: PathBuf, temporary: bool) -> Result<Arc<Self>> {
         // Create database connection
         let db = sled::Config::new()
             .path(path)
@@ -34,12 +33,12 @@ impl Storage {
         let guest = typed_sled::Tree::open(&db, "guest");
         let soul = typed_sled::Tree::open(&db, "soul");
 
-        Ok(Self {
+        Ok(Arc::new(Self {
             db,
             node,
             guest,
             soul,
-        })
+        }))
     }
 }
 
@@ -106,7 +105,7 @@ impl Storage {
 
     pub async fn save_guest(&self, id: GID, guest: Option<&Guest>) -> Result<()> {
         if let Some(guest) = guest {
-            self.guest.insert(&id, guest)?;
+            dbg!(self.guest.insert(&id, guest)?);
             debug_assert_eq!(self.guest.len() as u64, id.0 + 1);
             dbgeprintln!("[db] save_guest::{:?}", guest);
             Ok(())
@@ -134,20 +133,26 @@ impl Storage {
 
     // SOULS
     pub async fn get_soul(&self, uid: &String) -> Result<Option<Soul>> {
-        Ok(dbg!(self.soul.get(&uid)?))
+        Ok(self.soul.get(&*uid)?)
     }
     pub async fn get_souls(&self) -> Result<Vec<Soul>> {
         Ok(self.soul.iter().values().filter_map(|x| x.ok()).collect())
     }
-    pub async fn save_soul(&self, uid: &String, soul: Option<Soul>) -> Result<()> {
+
+    /// Return the old value, if any.
+    pub async fn save_soul(&self, uid: &String, soul: Option<Soul>) -> Result<Option<Soul>> {
         if let Some(soul) = soul {
             dbgeprintln!("[db] save_soul::{:?}", soul);
-            self.soul
-                .insert(&uid, &soul)
-                .map_err(|x| x.into())
-                .map(|_| ())
+            let rtn = self.soul.insert(uid, &soul)?;
+            dbg!(self
+                .soul
+                .iter()
+                .values()
+                .filter_map(|x| x.ok())
+                .collect::<Vec<Soul>>());
+            Ok(rtn)
         } else {
-            self.soul.remove(&uid).map_err(|x| x.into()).map(|_| ())
+            Ok(self.soul.remove(uid)?)
         }
     }
 
@@ -171,3 +176,22 @@ impl Drop for Storage {
 }
 
 // todo!("test db::save_soul and db::get_soul");
+
+#[cfg(test)]
+mod test {
+    use crate::world::World;
+
+    use super::*;
+    #[tokio::test]
+    async fn test_soul() {
+        let db = Storage::new("./test.sled".into(), true).unwrap();
+        let world = World::new(db.clone());
+
+        let soul = world
+            .register_soul("name".to_string(), "123456".to_string())
+            .await
+            .unwrap();
+
+        assert_eq!(db.get_soul(&soul.uid).await.unwrap(), Some(soul));
+    }
+}

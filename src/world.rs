@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
 use crate::db::Storage;
@@ -20,11 +22,11 @@ impl WorldID {
 
 #[derive(Debug, Clone)]
 pub struct World {
-    pub storage: Storage,
+    storage: Arc<Storage>,
 }
 
 impl World {
-    pub fn new(storage: Storage) -> World {
+    pub fn new(storage: Arc<Storage>) -> World {
         World { storage }
     }
 }
@@ -49,8 +51,8 @@ impl World {
 
     /// Soul usage
     pub async fn register_soul(&self, name: String, pw_hash: String) -> Result<Soul> {
-        let s = Soul::new(self, name, pw_hash).await;
-        // self.storage.save_soul(&s.uid, Some(s.clone())).await?;
+        let s = Soul::spawn(self, name, pw_hash).await;
+        self.storage.save_soul(&s.uid, Some(s.clone())).await?;
         Ok(s)
     }
 
@@ -65,6 +67,10 @@ impl World {
 
     pub async fn get_soul(&self, uid: &String) -> Result<Option<Soul>> {
         Ok(self.storage.get_soul(uid).await?)
+    }
+
+    pub async fn get_souls(&self) -> Result<Vec<Soul>> {
+        Ok(self.storage.get_souls().await?)
     }
 
     pub async fn verify_soul(&self, uid: &String, pw_hash: &String) -> Result<bool> {
@@ -131,17 +137,15 @@ mod test {
 
     #[tokio::test]
     async fn test_sled() {
-        let sled = Storage::new("test_sled".into(), true).unwrap();
-        let w = World {
-            storage: sled.clone(),
-        };
+        let sled = Storage::new("test_sled.sled".into(), true).unwrap();
+        let w = World { storage: sled.clone()};
         assert_eq!(w.spawn().await, GID(0));
         assert_eq!(w.spawn().await, GID(1));
         assert_eq!(w.spawn().await, GID(2));
         let g1 = w.get_guest(GID(1)).await.unwrap().clone();
         drop(w);
 
-        let w = World { storage: sled };
+        let w = World::new(sled);
         assert_eq!(w.spawn().await, GID(3));
         assert_eq!(w.spawn().await, GID(4));
         assert_eq!(w.spawn().await, GID(5));
@@ -152,22 +156,18 @@ mod test {
     #[tokio::test]
     async fn test_node() {
         // Create world
-        let sled = Storage::new("test_node".into(), true).unwrap();
-        let w = World {
-            storage: sled.clone(),
-        };
+        let sled = Storage::new("test_node.sled".into(), true).unwrap();
+        let w = World { storage: sled.clone()};
 
         //  assert nodes_active length
-        assert_eq!(w.storage.count_guests().await.unwrap(), 0);
+        assert_eq!(w.storage.count_nodes().await.unwrap(), 0);
         w.detect_node(NodeID(1, 1)).await;
-        assert_eq!(w.storage.count_guests().await.unwrap(), 1);
+        assert_eq!(w.storage.count_nodes().await.unwrap(), 1);
         // assert nodes' data is same after detach database
         let data1 = w.detect_node(NodeID(114, 514)).await;
         drop(w);
 
-        let w = World {
-            storage: sled.clone(),
-        };
+        let w = World { storage: sled.clone() };
         let data2 = w.detect_node(NodeID(114, 514)).await;
         assert_eq!(data1, data2);
 
@@ -182,9 +182,7 @@ mod test {
             .await;
         drop(w);
 
-        let w = World {
-            storage: sled.clone(),
-        };
+        let w = World { storage: sled };
         let tep2 = w.detect_node(NodeID(114, 514)).await.0[0];
 
         assert_eq!(tep1.saturating_sub(1), tep2);
@@ -192,14 +190,14 @@ mod test {
 
     #[tokio::test]
     async fn save_lot_nodes() {
-        let sled = Storage::new("test_lot_nodes".into(), true).unwrap();
+        let sled = Storage::new("test_lot_nodes.sled".into(), true).unwrap();
         let w = World::new(sled.clone());
         for i in 0..1001 {
             w.detect_node(NodeID(i, i)).await;
         }
         drop(w);
 
-        let w = World::new(sled.clone());
+        let w = World::new(sled);
         assert_eq!(w.storage.count_nodes().await.unwrap(), 1001);
     }
 }

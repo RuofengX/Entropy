@@ -77,18 +77,3 @@ pub(crate) async fn contain_guest(
         },
     )
 }
-
-#[cfg(test)]
-mod test {
-    use crate::db::Storage;
-
-    #[tokio::test]
-    async fn debug_database() {
-        let db = Storage::new("entropy.sled".into(), false).unwrap();
-        println!(
-            "{:?}",
-            // db.get_soul(&"3TlzvYXkmDJ0iFSWD6mbVT".to_string()).await
-            db.get_souls().await
-        );
-    }
-}
