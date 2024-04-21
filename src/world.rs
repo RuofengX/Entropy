@@ -108,7 +108,7 @@ impl World {
     }
 
     /// Soul usage
-    pub async fn modify_node_with_sync(
+    pub fn modify_node_with_sync(
         &self,
         id: NodeID,
         mut f: impl FnMut(&mut NodeData) + Send + Sync,

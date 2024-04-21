@@ -121,7 +121,6 @@ pub struct GuestHarvestBody {
     at: usize,
 }
 
-///FIXME: nothing happened after call this api.
 #[debug_handler]
 pub(crate) async fn guest_harvest(
     AuthBasic((uid, pw_hash)): AuthBasic,

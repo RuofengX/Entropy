@@ -43,7 +43,6 @@ pub const ALL_DIRECTION: [(i16, i16); 9] = [
 pub struct NodeData(#[serde(with = "serde_bytes")] pub [u8; NODE_SIZE]);
 impl NodeData {
     pub fn random() -> Self {
-        //FIXME: use sequence random
         let mut rtn = [0u8; 1024];
         thread_rng().fill(&mut rtn);
         Self(rtn)

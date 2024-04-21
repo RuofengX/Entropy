@@ -1,3 +1,6 @@
+use std::cmp::{max, min};
+
+use dbgprint::dbgprintln;
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +44,10 @@ impl Guest {
     }
 
     pub(crate) fn carnot_efficiency(&self, cell: &u8) -> f32 {
-        1.0 - self.temperature as f32 / *cell as f32
+        let s = unsafe { NotNan::new_unchecked(self.temperature as f32) };
+        let o = unsafe { NotNan::new_unchecked(*cell as f32) };
+        let (h, c) = if s > o { (*s, *o) } else { (*o, *s) };
+        1f32 - c / h
     }
 
     pub(crate) fn total_efficiency(&self, cell: &u8) -> f32 {
@@ -56,22 +62,23 @@ impl Guest {
     pub(crate) fn generate_energy(&mut self, cell: &mut u8) -> u8 {
         // Calculate the delta energy first, for borrow check
         let delta = self.temperature.abs_diff(*cell);
-        let energy = (self.total_efficiency(cell) * delta as f32).floor() as u8;
+        let delta = (self.total_efficiency(cell) * delta as f32).floor() as u8;
 
         // no overflow will happen, the efficiency proves that, so no need to check
 
         // Determine which temperature is hotter and colder.
         // and go change
         if self.temperature > *cell {
-            self.temperature -= energy;
-            *cell += energy;
+            self.temperature -= delta;
+            *cell += delta;
         } else if self.temperature < *cell {
-            self.temperature += energy;
-            *cell -= energy;
+            self.temperature += delta;
+            *cell -= delta;
         } else {
             ()
         };
 
-        energy
+        self.energy += delta as u64;
+        delta
     }
 }
