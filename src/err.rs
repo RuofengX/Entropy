@@ -1,6 +1,4 @@
-use ordered_float::NotNan;
-
-use crate::guest::GID;
+use crate::{guest::GID, node::NODE_SIZE};
 
 pub(crate) type Result<T> = std::result::Result<T, anyhow::Error>;
 
@@ -32,8 +30,8 @@ pub enum GuestError {
     #[error("energy is not enough for operation::{op_name}, {require} needed, {left} left")]
     EnergyNotEnough {
         op_name: &'static str,
-        require: NotNan<f32>,
-        left: NotNan<f32>,
+        require: u64,
+        left: u64,
     },
 }
 
@@ -41,6 +39,8 @@ pub enum GuestError {
 pub enum NodeError {
     // #[error("node with NodeID::{0:?} not found in physical world")]
     // NotExist(NodeID),
+    #[error("invalid node index::{0}, index should < {NODE_SIZE}")]
+    IndexOutOfRange(usize),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -49,6 +49,11 @@ pub enum SoulError {
     // NotExist(String),
     #[error("GID::{0:?} is not recorded in soul's memory")]
     GuestNotConnected(GID),
+
+    #[error(
+        "GID::{0:?} is recorded in soul's memory, but not exist in world, which is not expected"
+    )]
+    GuestNotExist(GID),
 
     #[error("guest quota::{0} has been exceeded")]
     GuestQuotaExceeded(u64),

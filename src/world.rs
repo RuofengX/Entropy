@@ -87,8 +87,11 @@ impl World {
     }
 
     /// Soul usage
-    pub async fn detect_node(&self, id: NodeID) -> NodeData {
-        self.storage.get_node_or_init(id).await.unwrap().data
+    pub async fn detect_node(&self, id: NodeID) -> Result<NodeData> {
+        self.storage
+            .get_node_or_init(id)
+            .await
+            .and_then(|node| Ok(node.data))
     }
 
     /// Soul usage
@@ -105,25 +108,28 @@ impl World {
     }
 
     /// Soul usage
-    pub async fn contains_guest(&self, id: GID) -> bool {
-        self.storage.contains_guest(id).await.unwrap()
+    pub async fn modify_node_with_sync(
+        &self,
+        id: NodeID,
+        mut f: impl FnMut(&mut NodeData) + Send + Sync,
+    ) -> Result<Option<NodeData>> {
+        Ok(self
+            .storage
+            .modify_node_with_sync(id, |x| f(&mut x.data))?
+            .and_then(|n| Some(n.data)))
     }
 
     /// Soul usage
+    pub async fn contains_guest(&self, id: GID) -> Result<bool> {
+        self.storage.contains_guest(id).await
+    }
+
     pub async fn modify_guest_with(
         &self,
         id: GID,
-        f: impl Fn(&mut Guest) + Send + Sync,
+        f: impl FnMut(&mut Guest) + Send + Sync,
     ) -> Result<Option<Guest>> {
         self.storage.modify_guest_with(id, f).await
-    }
-
-    pub async fn flush_async(&self) {
-        let _ = self.storage.flush_async().await;
-    }
-
-    pub fn flush(&self) {
-        let _ = self.storage.flush();
     }
 }
 
@@ -138,7 +144,9 @@ mod test {
     #[tokio::test]
     async fn test_sled() {
         let sled = Storage::new("test_sled.sled".into(), true).unwrap();
-        let w = World { storage: sled.clone()};
+        let w = World {
+            storage: sled.clone(),
+        };
         assert_eq!(w.spawn().await, GID(0));
         assert_eq!(w.spawn().await, GID(1));
         assert_eq!(w.spawn().await, GID(2));
@@ -157,18 +165,22 @@ mod test {
     async fn test_node() {
         // Create world
         let sled = Storage::new("test_node.sled".into(), true).unwrap();
-        let w = World { storage: sled.clone()};
+        let w = World {
+            storage: sled.clone(),
+        };
 
         //  assert nodes_active length
         assert_eq!(w.storage.count_nodes().await.unwrap(), 0);
-        w.detect_node(NodeID(1, 1)).await;
+        let _ = w.detect_node(NodeID(1, 1)).await;
         assert_eq!(w.storage.count_nodes().await.unwrap(), 1);
         // assert nodes' data is same after detach database
-        let data1 = w.detect_node(NodeID(114, 514)).await;
+        let data1 = w.detect_node(NodeID(114, 514)).await.unwrap();
         drop(w);
 
-        let w = World { storage: sled.clone() };
-        let data2 = w.detect_node(NodeID(114, 514)).await;
+        let w = World {
+            storage: sled.clone(),
+        };
+        let data2 = w.detect_node(NodeID(114, 514)).await.unwrap();
         assert_eq!(data1, data2);
 
         // assert data change is also saved
@@ -176,14 +188,14 @@ mod test {
             data.0.iter_mut().for_each(|x| *x = x.saturating_sub(1));
         }
 
-        let tep1 = w.detect_node(NodeID(114, 514)).await.0[0];
+        let tep1 = w.detect_node(NodeID(114, 514)).await.unwrap().0[0];
         let _ = w
             .modify_node_with(NodeID(114, 514), temperature_minus_one)
             .await;
         drop(w);
 
         let w = World { storage: sled };
-        let tep2 = w.detect_node(NodeID(114, 514)).await.0[0];
+        let tep2 = w.detect_node(NodeID(114, 514)).await.unwrap().0[0];
 
         assert_eq!(tep1.saturating_sub(1), tep2);
     }
@@ -193,7 +205,7 @@ mod test {
         let sled = Storage::new("test_lot_nodes.sled".into(), true).unwrap();
         let w = World::new(sled.clone());
         for i in 0..1001 {
-            w.detect_node(NodeID(i, i)).await;
+            let _ = w.detect_node(NodeID(i, i)).await;
         }
         drop(w);
 

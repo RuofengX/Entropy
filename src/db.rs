@@ -1,6 +1,5 @@
 use std::{path::PathBuf, sync::Arc};
 
-use anyhow::Ok;
 use dbgprint::dbgeprintln;
 use typed_sled::Tree;
 
@@ -73,10 +72,25 @@ impl Storage {
             Ok(())
         }
     }
+
     pub async fn modify_node_with(
         &self,
         id: NodeID,
-        f: impl for<'b> Fn(&'b mut Node) + Send,
+        mut f: impl for<'b> FnMut(&'b mut Node) + Send,
+    ) -> Result<Option<Node>> {
+        let full_f = |x: Option<Node>| -> Option<Node> {
+            let mut temp_node = x.unwrap_or_else(Node::generate_new);
+            f(&mut temp_node);
+            Some(temp_node)
+        };
+        let rtn = self.node.update_and_fetch(&id, full_f)?;
+        Ok(rtn)
+    }
+
+    pub fn modify_node_with_sync(
+        &self,
+        id: NodeID,
+        mut f: impl for<'b> FnMut(&'b mut Node) + Send,
     ) -> Result<Option<Node>> {
         let full_f = |x: Option<Node>| -> Option<Node> {
             let mut temp_node = x.unwrap_or_else(Node::generate_new);
@@ -96,7 +110,7 @@ impl Storage {
     }
 
     pub async fn get_guest(&self, id: GID) -> Result<Option<Guest>> {
-        Ok(dbg!(self.guest.get(&id)?))
+        Ok(self.guest.get(&id)?)
     }
 
     pub async fn get_guests(&self) -> Result<Vec<Guest>> {
@@ -105,7 +119,7 @@ impl Storage {
 
     pub async fn save_guest(&self, id: GID, guest: Option<&Guest>) -> Result<()> {
         if let Some(guest) = guest {
-            dbg!(self.guest.insert(&id, guest)?);
+            self.guest.insert(&id, guest)?;
             debug_assert_eq!(self.guest.len() as u64, id.0 + 1);
             dbgeprintln!("[db] save_guest::{:?}", guest);
             Ok(())
@@ -117,7 +131,7 @@ impl Storage {
     pub async fn modify_guest_with(
         &self,
         id: GID,
-        f: impl for<'g> Fn(&'g mut Guest) + Send + Sync,
+        mut f: impl for<'g> FnMut(&'g mut Guest) + Send + Sync,
     ) -> Result<Option<Guest>> {
         if !self.contains_guest(id).await? {
             return Ok(None);
@@ -144,12 +158,6 @@ impl Storage {
         if let Some(soul) = soul {
             dbgeprintln!("[db] save_soul::{:?}", soul);
             let rtn = self.soul.insert(uid, &soul)?;
-            dbg!(self
-                .soul
-                .iter()
-                .values()
-                .filter_map(|x| x.ok())
-                .collect::<Vec<Soul>>());
             Ok(rtn)
         } else {
             Ok(self.soul.remove(uid)?)

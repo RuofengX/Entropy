@@ -2,6 +2,8 @@ use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 
+pub const NODE_SIZE: usize = 1024;
+
 ///         ^U
 ///      LU MU RU
 /// L <- LM MM RM -> R
@@ -38,7 +40,7 @@ pub const ALL_DIRECTION: [(i16, i16); 9] = [
 ];
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
-pub struct NodeData(#[serde(with = "serde_bytes")] pub [u8; 1024]);
+pub struct NodeData(#[serde(with = "serde_bytes")] pub [u8; NODE_SIZE]);
 impl NodeData {
     pub fn random() -> Self {
         //FIXME: use sequence random

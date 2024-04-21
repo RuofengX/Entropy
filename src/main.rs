@@ -9,7 +9,10 @@ pub mod world;
 
 use std::sync::Arc;
 
-use axum::{routing::get, Router};
+use axum::{
+    routing::{get, post},
+    Router,
+};
 use db::Storage;
 use world::World;
 
@@ -19,8 +22,17 @@ async fn main() {
     let world = Arc::new(World::new(db));
 
     let router = Router::new()
-        .route("/register", get(api::register_soul))
-        .route("/exist_guest", get(api::contain_guest))
+        // soul
+        .route("/register", post(api::register_soul))
+        // node
+        .route("/node/:x/:y", get(api::get_node_json))
+        .route("/node/json/:x/:y", get(api::get_node_json))
+        .route("/node/bytes/:x/:y", get(api::get_node_bytes))
+        // guest
+        .route("/guest", get(api::get_guest))
+        .route("/guest/exist", get(api::contain_guest))
+        .route("/guest/walk", post(api::guest_walk))
+        .route("/guest/harvest", post(api::guest_harvest))
         .with_state(world.clone());
 
     // run our app with hyper, listening globally on port 3000
