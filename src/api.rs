@@ -72,6 +72,15 @@ pub mod soul {
     ) -> Result<Json<Soul>> {
         Ok(Json(world.register_soul(name, pw_hash).await?))
     }
+
+    #[debug_handler]
+    pub(crate) async fn get(
+        AuthBasic((uid, pw_hash)): AuthBasic,
+        State(world): State<Arc<World>>,
+    ) -> Result<Json<Soul>> {
+        verify_soul(&world, &uid, pw_hash).await?;
+        Ok(Json(world.get_soul(&uid).await?.unwrap()))
+    }
 }
 
 pub mod guest {
@@ -92,7 +101,7 @@ pub mod guest {
         verify_soul(&world, &uid, pw_hash).await?;
 
         let wondering_soul = world.get_wondering_soul(&uid).await?.unwrap(); // Soul 注册后不会删除，所以这里不会出现 None
-        Ok(Json(Some(wondering_soul.contains_guest(id))))
+        Ok(Json(Some(wondering_soul.contain_guest(id))))
     }
 
     #[debug_handler]
@@ -141,6 +150,24 @@ pub mod guest {
 
         let wondering_soul = world.get_wondering_soul(&uid).await?.unwrap();
         Ok(Json(wondering_soul.harvest(id, at).await?))
+    }
+
+    #[derive(Debug, Deserialize)]
+    pub struct HeatBody {
+        id: GID,
+        at: usize,
+        energy: u8,
+    }
+    #[debug_handler]
+    pub(crate) async fn heat(
+        AuthBasic((uid, pw_hash)): AuthBasic,
+        State(world): State<Arc<World>>,
+        Json(HeatBody { id, at, energy }): Json<HeatBody>,
+    ) -> Result<Json<Option<Guest>>> {
+        verify_soul(&world, &uid, pw_hash).await?;
+
+        let wondering_soul = world.get_wondering_soul(&uid).await?.unwrap();
+        Ok(Json(wondering_soul.heat(id, at, energy).await?))
     }
 }
 

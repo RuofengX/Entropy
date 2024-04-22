@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use ahash::HashSet;
 use anyhow::{bail, Ok};
 use futures::future::join_all;
@@ -58,7 +60,7 @@ impl<'w> WonderingSoul<'w> {
         Self { soul, world }
     }
 
-    pub fn contains_guest(&self, id: GID) -> bool {
+    pub fn contain_guest(&self, id: GID) -> bool {
         self.soul.guests.contains(&id)
     }
 
@@ -89,9 +91,7 @@ impl<'w> WonderingSoul<'w> {
     }
 
     pub async fn walk(&self, id: GID, to: Direction) -> Result<Option<Guest>> {
-        if !self.contains_guest(id) {
-            return Err(SoulError::GuestNotConnected(id).into());
-        }
+        self.check_guest(id).await?;
 
         // check again whether the guest is exist
         if let Some(g) = self.world.get_guest(id).await? {
@@ -120,18 +120,8 @@ impl<'w> WonderingSoul<'w> {
     }
 
     pub async fn harvest(&self, id: GID, at: usize) -> Result<Option<Guest>> {
-        if at > NODE_SIZE - 1 {
-            bail!(NodeError::IndexOutOfRange(at))
-        }
-
-        if !self.contains_guest(id) {
-            return Err(SoulError::GuestNotConnected(id).into());
-        }
-
-        // check first because modify guest wont pop error if guest not exist
-        if !self.world.contains_guest(id).await? {
-            bail!(SoulError::GuestNotExist(id))
-        };
+        Self::check_node_index(at)?;
+        self.check_guest(id).await?;
 
         // check again whether the guest is exist
         Ok(self
@@ -144,4 +134,66 @@ impl<'w> WonderingSoul<'w> {
             })
             .await?)
     }
+
+    pub async fn heat(&self, id: GID, at: usize, energy: u8) -> Result<Option<Guest>> {
+        Self::check_node_index(at)?;
+        self.check_guest_energy(id, "heat", energy as u64).await?;
+
+        self.world.modify_guest_with(id, |g| {
+            if !g.is_energy_enough(energy as u64) {
+                return;
+            };
+            let _ = self.world.modify_node_with_sync(g.node, |n| {
+                let cell = n.0[at];
+                let (new_cell, is_overflow) = cell.overflowing_add(energy);
+                g.energy -= energy as u64;
+                if !is_overflow {
+                    n.0[at] = new_cell;
+                } else {
+                    let overflow = new_cell + 1;
+                    g.energy += overflow as u64;
+                    n.0[at] = u8::MAX;
+                }
+            });
+        }).await
+    }
+
+    fn check_node_index(at: usize) -> Result<()> {
+        if at > NODE_SIZE - 1 {
+            bail!(NodeError::IndexOutOfRange(at))
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn check_guest(&self, id: GID) -> Result<()> {
+        if !self.soul.guests.contains(&id) {
+            bail!(SoulError::GuestNotConnected(id));
+        };
+        if !self.world.contains_guest(id).await? {
+            bail!(SoulError::GuestNotExist(id));
+        };
+        Ok(())
+    }
+
+    async fn check_guest_energy(&self, id: GID, op_name: &'static str, require: u64) -> Result<()> {
+        if !self.soul.guests.contains(&id) {
+            bail!(SoulError::GuestNotConnected(id));
+        };
+        if let Some(g) = self.world.get_guest(id).await? {
+            if require > g.energy {
+                bail!(GuestError::EnergyNotEnough {
+                    op_name,
+                    require,
+                    left: g.energy
+                });
+            } else {
+                Ok(())
+            }
+        } else {
+            bail!(SoulError::GuestNotExist(id));
+        }
+    }
 }
+
+//TODO TEST NEED
