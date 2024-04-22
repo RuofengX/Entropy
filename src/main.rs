@@ -35,13 +35,12 @@ async fn main() {
         .route("/guest/harvest", post(api::guest::harvest))
         .with_state(world.clone());
 
-    // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
 
     axum::serve(listener, router)
         .with_graceful_shutdown(async {
             let _ = tokio::signal::ctrl_c().await;
-            println!("stop signal caught");
+            println!("\nstop signal caught");
         })
         .await
         .unwrap();
