@@ -32,7 +32,7 @@ impl Guest {
             temperature: 128,
             energy: 100u64,
             engine_efficiency: NotNan::new(0.8).unwrap(),
-            walk_cost: 0u64,
+            walk_cost: 1u64,
         }
     }
 
