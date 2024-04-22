@@ -23,16 +23,16 @@ async fn main() {
 
     let router = Router::new()
         // soul
-        .route("/register", post(api::register_soul))
+        .route("/register", post(api::soul::register))
         // node
-        .route("/node/:x/:y", get(api::get_node_json))
-        .route("/node/json/:x/:y", get(api::get_node_json))
-        .route("/node/bytes/:x/:y", get(api::get_node_bytes))
+        .route("/node/:x/:y", get(api::node::get_json))
+        .route("/node/json/:x/:y", get(api::node::get_json))
+        .route("/node/bytes/:x/:y", get(api::node::get_bytes))
         // guest
-        .route("/guest", get(api::get_guest))
-        .route("/guest/exist", get(api::contain_guest))
-        .route("/guest/walk", post(api::guest_walk))
-        .route("/guest/harvest", post(api::guest_harvest))
+        .route("/guest", get(api::guest::get))
+        .route("/guest/exist", get(api::guest::contain))
+        .route("/guest/walk", post(api::guest::walk))
+        .route("/guest/harvest", post(api::guest::harvest))
         .with_state(world.clone());
 
     // run our app with hyper, listening globally on port 3000
