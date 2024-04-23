@@ -11,15 +11,16 @@ pub const NODE_SIZE: usize = 1024;
 ///         vD
 pub mod direction {
     pub type Direction = (i16, i16);
-    pub const LU: (i16, i16) = (-1, 1);
-    pub const MU: (i16, i16) = (0, 1);
-    pub const RU: (i16, i16) = (1, 1);
-    pub const LM: (i16, i16) = (-1, 0);
-    pub const MM: (i16, i16) = (0, 0);
-    pub const RM: (i16, i16) = (1, 0);
-    pub const LD: (i16, i16) = (-1, -1);
-    pub const MD: (i16, i16) = (0, -1);
-    pub const RD: (i16, i16) = (1, -1);
+    pub const SITU: (i16, i16) = (0, 0);
+    pub const UP: (i16, i16) = (0, 1);
+    pub const DOWN: (i16, i16) = (0, -1);
+    pub const LEFT: (i16, i16) = (-1, 0);
+    pub const RIGHT: (i16, i16) = (1, 0);
+
+    pub const UP_LEFT: (i16, i16) = (-1, 1);
+    pub const UP_RIGHT: (i16, i16) = (1, 1);
+    pub const DOWN_LEFT: (i16, i16) = (-1, -1);
+    pub const DOWN_RIGHT: (i16, i16) = (1, -1);
 }
 
 /// y
@@ -54,6 +55,16 @@ impl NodeData {
 )]
 pub struct NodeID(pub i16, pub i16);
 impl NodeID {
+    pub const POLAR_UP_LEFT: Self = NodeID(i16::MIN, i16::MAX);
+    pub const POLAR_UP_MIDDLE: Self = NodeID(0, i16::MAX);
+    pub const POLAR_UP_RIGHT: Self = NodeID(i16::MAX, i16::MAX);
+    pub const POLAR_LEFT_MIDDLE: Self = NodeID(i16::MIN, 0);
+    pub const POLAR_ORIGIN: Self = NodeID(0, 0);
+    pub const POLAR_RIGHT_MIDDLE: Self = NodeID(i16::MAX, 0);
+    pub const POLAR_DOWN_LEFT: Self = NodeID(i16::MIN, i16::MIN);
+    pub const POLAR_DOWN_MIDDLE: Self = NodeID(0, i16::MIN);
+    pub const POLAR_DOWN_RIGHT: Self = NodeID(i16::MAX, i16::MIN);
+
     pub fn get_nearby_index(&self) -> NearbyIndex {
         let mut rtn = [self.clone(); 9];
 
@@ -66,9 +77,9 @@ impl NodeID {
 }
 
 impl NodeID {
-    pub(crate) fn walk(&mut self, direction: direction::Direction) -> NodeID {
-        self.0 = self.0.wrapping_add(direction.0);
-        self.1 = self.1.wrapping_add(direction.1);
+    pub(crate) fn transform(&mut self, to: direction::Direction) -> NodeID {
+        self.0 = self.0.wrapping_add(to.0);
+        self.1 = self.1.wrapping_add(to.1);
         self.clone()
     }
 }

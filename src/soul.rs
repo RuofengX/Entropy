@@ -79,15 +79,6 @@ impl<'w> WonderingSoul<'w> {
             .collect()
     }
 
-    pub async fn disconnect_guest(&mut self, id: GID) -> Result<Option<Guest>> {
-        let guest = self.get_guest(id).await?;
-        if self.soul.guests.take(&id).is_some() {
-            Ok(guest)
-        } else {
-            Err(SoulError::GuestNotConnected(id).into())
-        }
-    }
-
     pub async fn walk(&self, id: GID, to: Direction) -> Result<Option<Guest>> {
         self.check_guest(id).await?;
 
@@ -108,7 +99,7 @@ impl<'w> WonderingSoul<'w> {
                     // Also check energy, but ignore error
                     if g.is_energy_enough(g.walk_cost) {
                         g.energy -= g.walk_cost;
-                        g.node.walk(to);
+                        g.node.transform(to);
                     }
                 })
                 .await?)
@@ -137,23 +128,25 @@ impl<'w> WonderingSoul<'w> {
         Self::check_node_index(at)?;
         self.check_guest_energy(id, "heat", energy as u64).await?;
 
-        self.world.modify_guest_with(id, |g| {
-            if !g.is_energy_enough(energy as u64) {
-                return;
-            };
-            let _ = self.world.modify_node_with_sync(g.node, |n| {
-                let cell = n.0[at];
-                let (new_cell, is_overflow) = cell.overflowing_add(energy);
-                g.energy -= energy as u64;
-                if !is_overflow {
-                    n.0[at] = new_cell;
-                } else {
-                    let overflow = new_cell + 1;
-                    g.energy += overflow as u64;
-                    n.0[at] = u8::MAX;
-                }
-            });
-        }).await
+        self.world
+            .modify_guest_with(id, |g| {
+                if !g.is_energy_enough(energy as u64) {
+                    return;
+                };
+                let _ = self.world.modify_node_with_sync(g.node, |n| {
+                    let cell = n.0[at];
+                    let (new_cell, is_overflow) = cell.overflowing_add(energy);
+                    g.energy -= energy as u64;
+                    if !is_overflow {
+                        n.0[at] = new_cell;
+                    } else {
+                        let overflow = new_cell + 1;
+                        g.energy += overflow as u64;
+                        n.0[at] = u8::MAX;
+                    }
+                });
+            })
+            .await
     }
 
     fn check_node_index(at: usize) -> Result<()> {
@@ -194,4 +187,85 @@ impl<'w> WonderingSoul<'w> {
     }
 }
 
-//TODO TEST NEED
+#[cfg(test)]
+mod test {
+    use crate::{db::Storage, node::{direction, NodeID}};
+
+    use super::*;
+
+    async fn init_world(name: &'static str) -> World {
+        let sled = Storage::new(format!("{}.sled", name).into(), true).unwrap();
+        World::new(sled)
+    }
+
+    async fn get_wondering_soul<'w>(w: &'w World) -> WonderingSoul<'w> {
+        let soul = w
+            .register_soul("test".to_string(), "".to_string())
+            .await
+            .unwrap();
+        w.get_wondering_soul(&soul.uid).await.unwrap().unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_get_guest() {
+        let w = init_world("get").await;
+        let s = get_wondering_soul(&w).await;
+
+        let gid = s.soul.guests.iter().next().unwrap();
+
+        let g = s.get_guest(*gid).await.unwrap().unwrap();
+        assert_eq!(g.id, *gid);
+    }
+
+    #[tokio::test]
+    async fn test_list_guest() {
+        let w = init_world("list").await;
+        let s = get_wondering_soul(&w).await;
+
+        let gids: Vec<GID> = s.soul.guests.iter().cloned().collect();
+
+        let gids_2: Vec<GID> = s.list_guests().await.into_iter().map(|g| g.id).collect();
+        assert_eq!(gids, gids_2);
+    }
+
+    #[tokio::test]
+    async fn test_walk() {
+        let w = init_world("walk").await;
+        let s = get_wondering_soul(&w).await;
+        let gid: GID = s.soul.guests.iter().cloned().next().unwrap();
+
+        let g = w.get_guest(gid).await.unwrap().unwrap();
+        let mut pos = g.node;
+
+        let _ = s.walk(gid, direction::UP_RIGHT).await;
+
+        let g = w.get_guest(gid).await.unwrap().unwrap();
+        let pos_2 = g.node;
+
+        assert_eq!(pos.transform(direction::UP_RIGHT), pos_2);
+    }
+
+    #[tokio::test]
+    async fn test_walk_edge() {
+        let w = init_world("walk_edge").await;
+        let s = get_wondering_soul(&w).await;
+        let gid: GID = s.soul.guests.iter().cloned().next().unwrap();
+
+        // make the guest at right-middle polar node
+        let _ = w.modify_guest_with(gid, |g|{
+            g.node = NodeID::POLAR_RIGHT_MIDDLE;
+        }).await;
+
+
+        let _ = s.walk(gid, direction::RIGHT).await;
+
+        let g = w.get_guest(gid).await.unwrap().unwrap();
+        let pos_2 = g.node;
+
+        // warps to the left
+        assert_eq!(pos_2, NodeID::POLAR_LEFT_MIDDLE);
+    }
+
+    //TODO MORE TEST NEEDED
+
+}
