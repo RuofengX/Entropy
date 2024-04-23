@@ -14,6 +14,8 @@ use axum::{
     Router,
 };
 use db::Storage;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 use world::World;
 
 #[tokio::main]
@@ -22,16 +24,16 @@ async fn main() {
     let world = Arc::new(World::new(db));
 
     let router = Router::new()
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api::Doc::openapi()))
         // soul api
         .route("/register", post(api::soul::register))
         .route("/soul", get(api::soul::get))
         // node api
         .route("/node/:x/:y", get(api::node::get_json))
-        .route("/node/json/:x/:y", get(api::node::get_json))
         .route("/node/bytes/:x/:y", get(api::node::get_bytes))
         // guest api
         .route("/guest", get(api::guest::get))
-        .route("/guest/exist", get(api::guest::contain))
+        .route("/guest/contain", get(api::guest::contain))
         .route("/guest/walk", post(api::guest::walk))
         .route("/guest/harvest", post(api::guest::harvest))
         .route("/guest/heat", post(api::guest::heat))

@@ -1,5 +1,6 @@
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use std::hash::Hash;
 
 pub const NODE_SIZE: usize = 1024;
@@ -40,7 +41,7 @@ pub const ALL_DIRECTION: [(i16, i16); 9] = [
     (1, -1),
 ];
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, ToSchema)]
 pub struct NodeData(#[serde(with = "serde_bytes")] pub [u8; NODE_SIZE]);
 impl NodeData {
     pub fn random() -> Self {
@@ -51,7 +52,7 @@ impl NodeData {
 }
 
 #[derive(
-    Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
+    Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema
 )]
 pub struct NodeID(pub i16, pub i16);
 impl NodeID {

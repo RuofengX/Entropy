@@ -1,9 +1,12 @@
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::node::NodeID;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize, Deserialize)]
+#[derive(
+    Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize, Deserialize, ToSchema,
+)]
 pub struct GID(pub u64);
 impl GID {
     pub fn get_then_increase(&mut self) -> GID {
@@ -13,13 +16,14 @@ impl GID {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, ToSchema)]
 pub struct Guest {
     pub id: GID,
     pub node: NodeID,
     pub energy: u64,
     pub walk_cost: u64,
     temperature: u8,
+    #[schema(value_type = f32)]
     engine_efficiency: NotNan<f32>,
 }
 

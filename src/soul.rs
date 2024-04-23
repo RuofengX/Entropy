@@ -1,8 +1,10 @@
-use ahash::HashSet;
+use std::collections::HashSet;
+
 use anyhow::{bail, Ok};
 use futures::future::join_all;
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::{
     alphabet::ENTROPY_CHAR,
@@ -12,7 +14,7 @@ use crate::{
     world::World,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct Soul {
     pub name: String,
     pub uid: String,
@@ -189,7 +191,10 @@ impl<'w> WonderingSoul<'w> {
 
 #[cfg(test)]
 mod test {
-    use crate::{db::Storage, node::{direction, NodeID}};
+    use crate::{
+        db::Storage,
+        node::{direction, NodeID},
+    };
 
     use super::*;
 
@@ -252,10 +257,11 @@ mod test {
         let gid: GID = s.soul.guests.iter().cloned().next().unwrap();
 
         // make the guest at right-middle polar node
-        let _ = w.modify_guest_with(gid, |g|{
-            g.node = NodeID::POLAR_RIGHT_MIDDLE;
-        }).await;
-
+        let _ = w
+            .modify_guest_with(gid, |g| {
+                g.node = NodeID::POLAR_RIGHT_MIDDLE;
+            })
+            .await;
 
         let _ = s.walk(gid, direction::RIGHT).await;
 
@@ -267,5 +273,4 @@ mod test {
     }
 
     //TODO MORE TEST NEEDED
-
 }

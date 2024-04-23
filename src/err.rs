@@ -55,6 +55,6 @@ pub enum SoulError {
     )]
     GuestNotExist(GID),
 
-    #[error("guest quota::{0} has been exceeded")]
-    GuestQuotaExceeded(u64),
+    // #[error("guest quota::{0} has been exceeded")]
+    // GuestQuotaExceeded(u64),
 }

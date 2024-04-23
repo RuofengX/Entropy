@@ -11,10 +11,11 @@ use axum::{
 use axum_auth::AuthBasic;
 use serde::Deserialize;
 use thiserror::Error;
+use utoipa::{OpenApi, ToSchema};
 
 use crate::{
     guest::{Guest, GID},
-    node::{direction, NodeData, NodeID},
+    node::{NodeData, NodeID},
     soul::Soul,
     world::World,
 };
@@ -22,19 +23,19 @@ use crate::{
 pub mod error {
     use super::*;
 
-    #[derive(Debug, Error)]
+    #[derive(Debug, Error, ToSchema)]
     pub enum ApiError {
         #[error("auth error, wrong uid::{0} or password")]
+        #[schema(example = "Wrong uid or password.")]
         AuthError(String),
 
         #[error("no password found in request header")]
+        #[schema(example = "No password were given.")]
         EmptyPassword,
-
-        #[error("error when serialize/deserialize json data")]
-        JsonParseError(#[from] serde_json::Error),
 
         /// all the other error is from backend
         #[error(transparent)]
+        #[schema(value_type = Object, example = "Error from internal.")]
         BackendError(#[from] anyhow::Error),
     }
 
@@ -59,13 +60,21 @@ async fn verify_soul(world: &World, uid: &String, pw_hash: Option<String>) -> Re
 
 pub mod soul {
     use super::*;
-    #[derive(Debug, Deserialize)]
+
+    #[derive(Debug, Deserialize, ToSchema)]
     pub struct RegisterInfo {
         name: String,
         pw_hash: String,
     }
 
-    #[debug_handler]
+    #[utoipa::path(
+        post,
+        path = "/register",
+        request_body = RegisterInfo,
+        responses(
+            (status = 200, description = "Soul creat successfully.", body = Soul)
+        )
+    )]
     pub(crate) async fn register(
         State(world): State<Arc<World>>,
         Json(RegisterInfo { name, pw_hash }): Json<RegisterInfo>,
@@ -73,7 +82,26 @@ pub mod soul {
         Ok(Json(world.register_soul(name, pw_hash).await?))
     }
 
-    #[debug_handler]
+    #[utoipa::path(
+        get,
+        path = "/soul",
+        responses(
+            (status = 200, description = "Get soul info successfully.", body = Soul, example = json!(
+                {
+                    "name": "Test Name",
+                    "uid": "6wQxPDN7sjDDyn92It5Q8w",
+                    "pw_hash": "password",
+                    "guest_quota": 1,
+                    "guests": [
+                        10086
+                    ]
+                }
+            )),
+        ),
+        security(
+            ("http" = ["Basic"])
+        )
+    )]
     pub(crate) async fn get(
         AuthBasic((uid, pw_hash)): AuthBasic,
         State(world): State<Arc<World>>,
@@ -86,28 +114,41 @@ pub mod soul {
 pub mod guest {
     use super::*;
 
-    #[derive(Debug, Deserialize)]
-    pub struct IndexQuery {
-        id: GID,
-    }
-
-    #[debug_handler]
+    #[utoipa::path(
+        get,
+        path = "/guest/contain",
+        responses(
+            (status = 200, description = "Check whether guest is contained in soul.", body = bool),
+        ),
+        security(
+            ("http" = ["Basic"])
+        )
+    )]
     pub(crate) async fn contain(
         AuthBasic((uid, pw_hash)): AuthBasic,
-        Query(IndexQuery { id }): Query<IndexQuery>,
+        Query(id): Query<GID>,
         State(world): State<Arc<World>>,
-    ) -> Result<Json<Option<bool>>> {
+    ) -> Result<Json<bool>> {
         // Verify soul authority
         verify_soul(&world, &uid, pw_hash).await?;
 
         let wondering_soul = world.get_wondering_soul(&uid).await?.unwrap(); // Soul 注册后不会删除，所以这里不会出现 None
-        Ok(Json(Some(wondering_soul.contain_guest(id))))
+        Ok(Json(wondering_soul.contain_guest(id)))
     }
 
-    #[debug_handler]
+    #[utoipa::path(
+        get,
+        path = "/guest",
+        responses(
+            (status = 200, description = "Get guest value.", body = Option<Guest>),
+        ),
+        security(
+            ("http" = ["Basic"])
+        )
+    )]
     pub(crate) async fn get(
         AuthBasic((uid, pw_hash)): AuthBasic,
-        Query(IndexQuery { id }): Query<IndexQuery>,
+        Query(id): Query<GID>,
         State(world): State<Arc<World>>,
     ) -> Result<Json<Option<Guest>>> {
         verify_soul(&world, &uid, pw_hash).await?;
@@ -116,35 +157,65 @@ pub mod guest {
         Ok(Json(wondering_soul.get_guest(id).await?))
     }
 
-    #[derive(Debug, Deserialize)]
-    pub struct WalkBody {
+    #[derive(Debug, Deserialize, ToSchema)]
+    pub struct WalkCommand {
+        #[schema(value_type = u64)]
         id: GID,
-        to: direction::Direction,
+        #[schema(maximum = 1, minimum = -1)]
+        x: i8,
+        #[schema(maximum = 1, minimum = -1)]
+        y: i8,
     }
 
-    #[debug_handler]
+    #[utoipa::path(
+        post,
+        path = "/guest/walk",
+        request_body = WalkCommand,
+        responses(
+            (status = 200, description = "Drive the target guest to walk to a direction.", body = Option<Guest>),
+        ),
+        security(
+            ("http" = ["Basic"])
+        )
+    )]
     pub(crate) async fn walk(
         AuthBasic((uid, pw_hash)): AuthBasic,
         State(world): State<Arc<World>>,
-        Json(WalkBody { id, to }): Json<WalkBody>,
+        Json(WalkCommand { id, x, y }): Json<WalkCommand>,
     ) -> Result<Json<Option<Guest>>> {
         verify_soul(&world, &uid, pw_hash).await?;
 
         let wondering_soul = world.get_wondering_soul(&uid).await?.unwrap();
-        Ok(Json(wondering_soul.walk(id, to).await?))
+        Ok(Json(wondering_soul.walk(id, (x as i16, y as i16)).await?))
     }
 
-    #[derive(Debug, Deserialize)]
-    pub struct HarvestBody {
+    #[derive(Debug, Deserialize, ToSchema)]
+    pub struct HarvestCommand {
+        #[schema(example = "Target an guest to do this command.")]
         id: GID,
+        #[schema(
+            example = "Harvest the node **at** the index.",
+            maximum = 1023,
+            minimum = 0
+        )]
         at: usize,
     }
 
-    #[debug_handler]
+    #[utoipa::path(
+        post,
+        path = "/guest/harvest",
+        request_body = HarvestCommand,
+        responses(
+            (status = 200, description = "Let the target guest harvest at given index of the node.", body = Option<Guest>),
+        ),
+        security(
+            ("http" = ["Basic"])
+        )
+    )]
     pub(crate) async fn harvest(
         AuthBasic((uid, pw_hash)): AuthBasic,
         State(world): State<Arc<World>>,
-        Json(HarvestBody { id, at }): Json<HarvestBody>,
+        Json(HarvestCommand { id, at }): Json<HarvestCommand>,
     ) -> Result<Json<Option<Guest>>> {
         verify_soul(&world, &uid, pw_hash).await?;
 
@@ -152,17 +223,35 @@ pub mod guest {
         Ok(Json(wondering_soul.harvest(id, at).await?))
     }
 
-    #[derive(Debug, Deserialize)]
-    pub struct HeatBody {
+    #[derive(Debug, Deserialize, ToSchema)]
+    pub struct HeatCommand {
+        #[schema(example = "Target an guest to do this command.")]
         id: GID,
+        #[schema(
+            example = "Harvest the node **at** the index.",
+            maximum = 1023,
+            minimum = 0
+        )]
         at: usize,
+        #[schema(example = "Limit the maxium energy that would use to heat.")]
         energy: u8,
     }
-    #[debug_handler]
+
+    #[utoipa::path(
+        post,
+        path = "/guest/heat",
+        request_body = HarvestCommand,
+        responses(
+            (status = 200, description = "Let the target guest heat at given index of the node.", body = Option<Guest>),
+        ),
+        security(
+            ("http" = ["Basic"])
+        )
+    )]
     pub(crate) async fn heat(
         AuthBasic((uid, pw_hash)): AuthBasic,
         State(world): State<Arc<World>>,
-        Json(HeatBody { id, at, energy }): Json<HeatBody>,
+        Json(HeatCommand { id, at, energy }): Json<HeatCommand>,
     ) -> Result<Json<Option<Guest>>> {
         verify_soul(&world, &uid, pw_hash).await?;
 
@@ -174,7 +263,14 @@ pub mod guest {
 // Node
 pub mod node {
     use super::*;
-    #[debug_handler]
+
+    #[utoipa::path(
+        get,
+        path = "/node/{x}/{y}",
+        responses(
+            (status = 200, description = "Get the node info.", body = NodeData, example = json!(NodeData::random())),
+        )
+    )]
     pub(crate) async fn get_json(
         State(world): State<Arc<World>>,
         Path((x, y)): Path<(i16, i16)>,
@@ -182,7 +278,13 @@ pub mod node {
         Ok(Json(world.detect_node(NodeID(x, y)).await?))
     }
 
-    #[debug_handler]
+    #[utoipa::path(
+        get,
+        path = "/node/bytes/{x}/{y}",
+        responses(
+            (status = 200, description = "Get the node info in pure bytes (1024 byte length) format.", content_type = "application/octet-stream "),
+        )
+    )]
     pub(crate) async fn get_bytes(
         State(world): State<Arc<World>>,
         Path((x, y)): Path<(i16, i16)>,
@@ -192,3 +294,35 @@ pub mod node {
         ))
     }
 }
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        soul::register,
+        soul::get,
+        guest::contain,
+        guest::get,
+        guest::walk,
+        guest::harvest,
+        guest::heat,
+        node::get_json,
+        node::get_bytes,
+    ),
+    components(
+        schemas(
+            soul::RegisterInfo,
+            guest::WalkCommand,
+            guest::HarvestCommand,
+            guest::HeatCommand,
+            crate::soul::Soul,
+            crate::guest::GID,
+            crate::guest::Guest,
+            crate::node::NodeID,
+            crate::node::NodeData,
+        )
+    ),
+    tags(
+        (name = "entropy", description = "Entropy game HTTP api.")
+    )
+)]
+pub struct Doc;
