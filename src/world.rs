@@ -49,6 +49,13 @@ impl World {
         g_id
     }
 
+    pub async fn spawn_at(&self, at: NodeID) -> GID {
+        let g_id = GID(self.count_guest().await);
+        let g = Guest::new(g_id, at);
+        self.storage.save_guest(g_id, Some(&g)).await.unwrap();
+        g_id
+    }
+
     /// Soul usage
     pub async fn register_soul(&self, name: String, pw_hash: String) -> Result<Soul> {
         let s = Soul::spawn(self, name, pw_hash).await;

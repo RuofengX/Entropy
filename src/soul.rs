@@ -10,7 +10,7 @@ use crate::{
     alphabet::ENTROPY_CHAR,
     err::{GuestError, NodeError, Result, SoulError},
     guest::{Guest, GID},
-    node::{direction::Direction, NODE_SIZE},
+    node::{direction::Direction, NodeID, NODE_SIZE},
     world::World,
 };
 
@@ -19,7 +19,6 @@ pub struct Soul {
     pub name: String,
     pub uid: String,
     pub pw_hash: String,
-    guest_quota: u64,
     guests: HashSet<GID>,
 }
 impl Soul {
@@ -30,7 +29,6 @@ impl Soul {
             name,
             uid: nanoid!(22, &ENTROPY_CHAR),
             pw_hash,
-            guest_quota: 1,
             guests,
         }
     }
@@ -38,14 +36,12 @@ impl Soul {
         name: String,
         uid: String,
         pw_hash: String,
-        guest_quota: u64,
         guests: HashSet<GID>,
     ) -> Self {
         Self {
             name,
             uid,
             pw_hash,
-            guest_quota,
             guests,
         }
     }
@@ -149,6 +145,30 @@ impl<'w> WonderingSoul<'w> {
                 });
             })
             .await
+    }
+
+    pub async fn spawn(&self, id: GID, energy: u64) -> Result<Option<Guest>> {
+        self.check_guest_energy(id, "spawn", energy as u64).await?;
+
+
+        let mut node: NodeID = Default::default();
+
+        self.world
+            .modify_guest_with(id, |g| {
+                g.energy -= energy;
+                node = g.node;
+            })
+            .await?;
+
+        let new_gid = self.world.spawn_at(node).await;
+
+        self.world
+            .modify_guest_with(new_gid, |g| {
+                g.energy += energy;
+            })
+            .await?;
+
+        self.world.get_guest(new_gid).await
     }
 
     fn check_node_index(at: usize) -> Result<()> {

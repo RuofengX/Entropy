@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use axum::{
     body::Bytes,
-    debug_handler,
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -16,7 +15,7 @@ use utoipa::{OpenApi, ToSchema};
 use crate::{
     guest::{Guest, GID},
     node::{NodeData, NodeID},
-    soul::Soul,
+    soul::{Soul, WonderingSoul},
     world::World,
 };
 
@@ -48,13 +47,27 @@ pub mod error {
 
 type Result<T> = std::result::Result<T, error::ApiError>;
 
+// Verify soul authority
 async fn verify_soul(world: &World, uid: &String, pw_hash: Option<String>) -> Result<()> {
-    // Verify soul authority
     let pw_hash = pw_hash.ok_or(error::ApiError::EmptyPassword)?;
     if !world.verify_soul(uid, &pw_hash).await? {
         Err(error::ApiError::AuthError(uid.clone()).into())
     } else {
         Ok(())
+    }
+}
+
+// Verify soul authority and return it
+async fn get_verified_soul<'w>(
+    world: &'w World,
+    uid: &String,
+    pw_hash: Option<String>,
+) -> Result<WonderingSoul<'w>> {
+    let pw_hash = pw_hash.ok_or(error::ApiError::EmptyPassword)?;
+    if !world.verify_soul(uid, &pw_hash).await? {
+        Err(error::ApiError::AuthError(uid.clone()).into())
+    } else {
+        Ok(world.get_wondering_soul(uid).await?.unwrap()) // Soul 注册后不会删除，所以可以直接返回
     }
 }
 
@@ -234,7 +247,7 @@ pub mod guest {
         )]
         at: usize,
         #[schema(example = "Limit the maxium energy that would use to heat.")]
-        energy: u8,
+        energy: u8, // TODO change this to u64
     }
 
     #[utoipa::path(
@@ -257,6 +270,34 @@ pub mod guest {
 
         let wondering_soul = world.get_wondering_soul(&uid).await?.unwrap();
         Ok(Json(wondering_soul.heat(id, at, energy).await?))
+    }
+
+    #[derive(Debug, Deserialize, ToSchema)]
+    pub struct SpawnCommand {
+        #[schema(example = "Target an guest to do this command.")]
+        id: GID,
+        #[schema(example = "Transfer the energy to the new target.")]
+        energy: u64,
+    }
+
+    #[utoipa::path(
+        post,
+        path = "/guest/spawn",
+        request_body = SpawnCommand,
+        responses(
+            (status = 200, description = "Let the target guest spawn a new guest.", body = Option<Guest>),
+        ),
+        security(
+            ("http" = ["Basic"])
+        )
+    )]
+    pub(crate) async fn spawn(
+        AuthBasic((uid, pw_hash)): AuthBasic,
+        State(world): State<Arc<World>>,
+        Json(SpawnCommand { id, energy }): Json<SpawnCommand>,
+    ) -> Result<Json<Option<Guest>>> {
+        let w_soul = get_verified_soul(&world, &uid, pw_hash).await?;
+        Ok(Json(w_soul.spawn(id, energy).await?))
     }
 }
 
@@ -305,6 +346,7 @@ pub mod node {
         guest::walk,
         guest::harvest,
         guest::heat,
+        guest::spawn,
         node::get_json,
         node::get_bytes,
     ),
@@ -314,6 +356,7 @@ pub mod node {
             guest::WalkCommand,
             guest::HarvestCommand,
             guest::HeatCommand,
+            guest::SpawnCommand,
             crate::soul::Soul,
             crate::guest::GID,
             crate::guest::Guest,

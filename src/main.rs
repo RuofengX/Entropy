@@ -37,6 +37,7 @@ async fn main() {
         .route("/guest/walk", post(api::guest::walk))
         .route("/guest/harvest", post(api::guest::harvest))
         .route("/guest/heat", post(api::guest::heat))
+        .route("/guest/spawn", post(api::guest::spawn))
         // other thing
         .with_state(world.clone());
 
