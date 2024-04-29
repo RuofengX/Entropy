@@ -20,7 +20,7 @@ use world::World;
 
 #[tokio::main]
 async fn main() {
-    let db = Storage::new("entropy.sled".into(), false).unwrap();
+    let db = Storage::new("~/.entropy_save".into(), false).unwrap();
     let world = Arc::new(World::new(db));
 
     let router = Router::new()
