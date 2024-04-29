@@ -41,7 +41,7 @@ async fn main() {
         // other thing
         .with_state(world.clone());
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:80").await.unwrap();
 
     axum::serve(listener, router)
         .with_graceful_shutdown(async {
