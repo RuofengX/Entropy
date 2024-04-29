@@ -1,6 +1,6 @@
 [package]
 name = "entropy-game"
-version = "0.2.3"
+version = "0.2.4c"
 edition = "2021"
 description = "Game with enrtopy in memory."
 license = "GPL-3.0-only"

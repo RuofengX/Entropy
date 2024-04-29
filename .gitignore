@@ -2,3 +2,5 @@
 saves
 Cargo.lock
 *.sled
+flamegraph.svg
+perf.data*
