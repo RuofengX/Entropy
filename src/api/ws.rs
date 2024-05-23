@@ -9,7 +9,7 @@ use axum::{
 };
 use axum_auth::AuthBasic;
 
-use super::{payload::ws::DetectCommand, verify};
+use super::verify;
 use crate::{soul::WonderingSoul, world::World};
 
 pub async fn stream(
@@ -17,13 +17,16 @@ pub async fn stream(
     ws: WebSocketUpgrade,
     State(world): State<Arc<World>>,
 ) -> Response {
-    match verify::get_verified_soul(&world, &uid, pw_hash).await {
-        Ok(w_soul) => ws.on_upgrade(|socket| ws_main(socket, w_soul)),
+    match verify::verify_soul(&world, &uid, pw_hash).await {
+        // WonderingSoul<'w> cannot move between threads.
+        // So pass world here.
+        Ok(_) => ws.on_upgrade(|socket| ws_main(socket, world, uid)),
         Err(e) => e.into_response(),
     }
 }
 
-pub async fn ws_main<'w>(mut socket: WebSocket, w_soul: WonderingSoul<'w>) {
+pub async fn ws_main<'w>(mut socket: WebSocket, world: Arc<World>, uid: String) {
+    let w_soul = world.get_wondering_soul(&uid).await.unwrap().unwrap();
     while let Some(Ok(msg)) = socket.recv().await {
         let rtn = match msg {
             Message::Binary(b) => binary_handler(&w_soul, b).await,
