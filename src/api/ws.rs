@@ -5,22 +5,23 @@ use axum::{
     extract::{
         ws::{Message, WebSocket},
         State, WebSocketUpgrade,
-    }, response::{IntoResponse, Response},
+    },
+    response::{IntoResponse, Response},
 };
 use axum_auth::AuthBasic;
 
 use super::verify;
 use crate::world::World;
+use crate::node::Node;
 
-#[debug_handler]
 pub async fn stream(
     AuthBasic((uid, pw_hash)): AuthBasic,
     ws: WebSocketUpgrade,
     State(world): State<Arc<World>>,
 ) -> Response {
-    match verify::verify_soul(&world, &uid, pw_hash).await{
+    match verify::verify_soul(&world, &uid, pw_hash).await {
         Ok(_) => ws.on_upgrade(|socket| ws_main(socket, world)),
-        Err(e) => e.into_response()
+        Err(e) => e.into_response(),
     }
 }
 

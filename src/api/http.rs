@@ -96,10 +96,10 @@ pub mod guest {
     pub(crate) async fn spawn(
         AuthBasic((uid, pw_hash)): AuthBasic,
         State(world): State<Arc<World>>,
-        Json(payload::SpawnCommand { id, energy }): Json<payload::SpawnCommand>,
+        Json(payload::SpawnCommand { id }): Json<payload::SpawnCommand>,
     ) -> Result<Json<Option<Guest>>> {
         let w_soul = get_verified_soul(&world, &uid, pw_hash).await?;
-        Ok(Json(w_soul.spawn(id, energy).await?))
+        Ok(Json(w_soul.spawn(id).await?))
     }
 }
 

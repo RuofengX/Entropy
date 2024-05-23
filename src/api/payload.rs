@@ -30,5 +30,4 @@ pub struct HeatCommand {
 #[derive(Debug, Deserialize)]
 pub struct SpawnCommand {
     pub id: GID,
-    pub energy: u64,
 }

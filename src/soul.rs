@@ -141,14 +141,20 @@ impl<'w> WonderingSoul<'w> {
             .await
     }
 
-    pub async fn spawn(&self, id: GID, energy: u64) -> Result<Option<Guest>> {
-        self.check_guest_energy(id, "spawn", energy as u64).await?;
+    pub async fn spawn(&self, id: GID) -> Result<Option<Guest>> {
+        let require_energy = if let Some(energy) = 2_u64.checked_pow(self.soul.guests.len() as u32){
+            energy
+        } else {
+            return Err(SoulError::GuestQuotaExceeded.into())
+        };
+
+        self.check_guest_energy(id, "spawn", require_energy as u64).await?;
 
         let mut node: NodeID = Default::default();
 
         self.world
             .modify_guest_with(id, |g| {
-                g.energy -= energy;
+                g.energy -= require_energy;
                 node = g.node;
             })
             .await?;
@@ -157,7 +163,7 @@ impl<'w> WonderingSoul<'w> {
 
         self.world
             .modify_guest_with(new_gid, |g| {
-                g.energy += energy;
+                g.energy += require_energy;
             })
             .await?;
 

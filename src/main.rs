@@ -23,8 +23,8 @@ async fn main() {
 
     let router = Router::new()
         // soul api
-        .route("/register", post(api::soul::register))
         .route("/soul", get(api::soul::get))
+        .route("/register", post(api::soul::register))
         // node api
         .route("/node/:x/:y", get(api::node::get_json))
         .route("/node/bytes/:x/:y", get(api::node::get_bytes))
