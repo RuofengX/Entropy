@@ -1,11 +1,11 @@
 mod alphabet;
-pub(crate) mod api;
 mod db;
 mod err;
 mod guest;
 pub mod node;
 pub mod soul;
 pub mod world;
+pub mod api;
 
 use std::sync::Arc;
 
@@ -14,7 +14,6 @@ use axum::{
     Router,
 };
 use db::Storage;
-use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 use world::World;
 
@@ -24,7 +23,6 @@ async fn main() {
     let world = Arc::new(World::new(db));
 
     let router = Router::new()
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api::Doc::openapi()))
         // soul api
         .route("/register", post(api::soul::register))
         .route("/soul", get(api::soul::get))
@@ -38,6 +36,7 @@ async fn main() {
         .route("/guest/harvest", post(api::guest::harvest))
         .route("/guest/heat", post(api::guest::heat))
         .route("/guest/spawn", post(api::guest::spawn))
+        .route("/ws", get(api::ws::stream))
         // other thing
         .with_state(world.clone());
 
