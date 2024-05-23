@@ -105,6 +105,8 @@ pub mod guest {
 
 // Node
 pub mod node {
+    use crate::node::NODE_SIZE;
+
     use super::*;
 
     pub(crate) async fn get_json(
@@ -117,9 +119,9 @@ pub mod node {
     pub(crate) async fn get_bytes(
         State(world): State<Arc<World>>,
         Path((x, y)): Path<(i16, i16)>,
-    ) -> Result<Bytes> {
-        Ok(Bytes::from(
-            world.detect_node(NodeID(x, y)).await?.0.to_vec(),
-        ))
+    ) -> Result<[u8; NODE_SIZE]> {
+        Ok(
+            world.detect_node(NodeID(x, y)).await?.0,
+        )
     }
 }

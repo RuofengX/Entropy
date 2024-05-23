@@ -1,3 +1,4 @@
+use axum::body::Bytes;
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
@@ -47,6 +48,14 @@ impl NodeData {
         let mut rtn = [0u8; 1024];
         thread_rng().fill(&mut rtn);
         Self(rtn)
+    }
+
+    pub fn to_bytes(self) -> Bytes{
+        Bytes::copy_from_slice(&self.0)
+    }
+
+    pub fn to_json(self) -> String{
+        serde_json::to_string(&self).unwrap()
     }
 }
 

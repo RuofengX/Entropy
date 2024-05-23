@@ -1,5 +1,5 @@
-use serde::Deserialize;
 use crate::guest::GID;
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct RegisterInfo {
@@ -30,4 +30,16 @@ pub struct HeatCommand {
 #[derive(Debug, Deserialize)]
 pub struct SpawnCommand {
     pub id: GID,
+}
+
+pub mod ws {
+    use super::*;
+
+    #[derive(Debug, Deserialize)]
+    pub struct DetectCommand{
+        pub fmt: String, // ["json", "bytes"]
+        pub x: i16,
+        pub y: i16,
+    }
+
 }
