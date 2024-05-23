@@ -4,17 +4,16 @@ use anyhow::{bail, Ok};
 use futures::future::join_all;
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 
 use crate::{
     alphabet::ENTROPY_CHAR,
     err::{GuestError, NodeError, Result, SoulError},
     guest::{Guest, GID},
-    node::{direction::Direction, NodeID, NODE_SIZE},
+    node::{navi::Direction, NodeID, NODE_SIZE},
     world::World,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Soul {
     pub name: String,
     pub uid: String,
@@ -32,12 +31,7 @@ impl Soul {
             guests,
         }
     }
-    pub fn new(
-        name: String,
-        uid: String,
-        pw_hash: String,
-        guests: HashSet<GID>,
-    ) -> Self {
+    pub fn new(name: String, uid: String, pw_hash: String, guests: HashSet<GID>) -> Self {
         Self {
             name,
             uid,
@@ -150,7 +144,6 @@ impl<'w> WonderingSoul<'w> {
     pub async fn spawn(&self, id: GID, energy: u64) -> Result<Option<Guest>> {
         self.check_guest_energy(id, "spawn", energy as u64).await?;
 
-
         let mut node: NodeID = Default::default();
 
         self.world
@@ -213,7 +206,7 @@ impl<'w> WonderingSoul<'w> {
 mod test {
     use crate::{
         db::Storage,
-        node::{direction, NodeID},
+        node::{navi, NodeID},
     };
 
     use super::*;
@@ -262,12 +255,12 @@ mod test {
         let g = w.get_guest(gid).await.unwrap().unwrap();
         let mut pos = g.node;
 
-        let _ = s.walk(gid, direction::UP_RIGHT).await;
+        let _ = s.walk(gid, navi::UP_RIGHT).await;
 
         let g = w.get_guest(gid).await.unwrap().unwrap();
         let pos_2 = g.node;
 
-        assert_eq!(pos.transform(direction::UP_RIGHT), pos_2);
+        assert_eq!(pos.transform(navi::UP_RIGHT), pos_2);
     }
 
     #[tokio::test]
@@ -283,7 +276,7 @@ mod test {
             })
             .await;
 
-        let _ = s.walk(gid, direction::RIGHT).await;
+        let _ = s.walk(gid, navi::RIGHT).await;
 
         let g = w.get_guest(gid).await.unwrap().unwrap();
         let pos_2 = g.node;

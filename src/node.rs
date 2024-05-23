@@ -1,16 +1,15 @@
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use std::hash::Hash;
 
 pub const NODE_SIZE: usize = 1024;
 
-///         ^U
-///      LU MU RU
-/// L <- LM MM RM -> R
-///      LD MD RM
-///         vD
-pub mod direction {
+///         ^UP
+///         |
+/// LEFT <-   -> RIGHT
+///         |
+///         vDOWN
+pub mod navi {
     pub type Direction = (i16, i16);
     pub const SITU: (i16, i16) = (0, 0);
     pub const UP: (i16, i16) = (0, 1);
@@ -41,7 +40,7 @@ pub const ALL_DIRECTION: [(i16, i16); 9] = [
     (1, -1),
 ];
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, ToSchema)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 pub struct NodeData(#[serde(with = "serde_bytes")] pub [u8; NODE_SIZE]);
 impl NodeData {
     pub fn random() -> Self {
@@ -52,7 +51,7 @@ impl NodeData {
 }
 
 #[derive(
-    Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema
+    Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
 pub struct NodeID(pub i16, pub i16);
 impl NodeID {
@@ -78,7 +77,7 @@ impl NodeID {
 }
 
 impl NodeID {
-    pub(crate) fn transform(&mut self, to: direction::Direction) -> NodeID {
+    pub(crate) fn transform(&mut self, to: navi::Direction) -> NodeID {
         self.0 = self.0.wrapping_add(to.0);
         self.1 = self.1.wrapping_add(to.1);
         self.clone()

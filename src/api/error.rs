@@ -1,20 +1,19 @@
-use axum::{http::StatusCode, response::{IntoResponse, Response}};
-use utoipa::ToSchema;
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
 use thiserror::Error;
 
-#[derive(Debug, Error, ToSchema)]
+#[derive(Debug, Error)]
 pub enum ApiError {
     #[error("auth error, wrong uid::{0} or password")]
-    #[schema(example = "Wrong uid or password.")]
     AuthError(String),
 
     #[error("no password found in request header")]
-    #[schema(example = "No password were given.")]
     EmptyPassword,
 
     /// all the other error is from backend
     #[error(transparent)]
-    #[schema(value_type = Object, example = "Error from internal.")]
     BackendError(#[from] anyhow::Error),
 }
 

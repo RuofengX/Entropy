@@ -14,7 +14,6 @@ use axum::{
     Router,
 };
 use db::Storage;
-use utoipa_swagger_ui::SwaggerUi;
 use world::World;
 
 #[tokio::main]
