@@ -56,26 +56,27 @@ impl Data {
         self.0.borrow()
     }
 
-    pub fn to_vec(&self) -> Vec<u8>{
+    pub fn to_vec(&self) -> Vec<u8> {
         self.0.to_vec()
     }
 }
-impl From<[u8; NODE_SIZE]> for Data{
+impl From<[u8; NODE_SIZE]> for Data {
     fn from(value: [u8; NODE_SIZE]) -> Self {
         Data(value)
     }
 }
 
-impl TryFrom<Vec<u8>> for Data{
+impl TryFrom<Vec<u8>> for Data {
     type Error = DataError;
     fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        if let Some(b) = value.first_chunk::<NODE_SIZE>(){
+        if let Some(b) = value.first_chunk::<NODE_SIZE>() {
             Ok(Data(*b))
-        }else {
-            Err(DataError::ConvertOutOfRange("Data length not correct"))
+        } else {
+            Err(DataError::ConvertOutOfRange {
+                desc: "Data length not correct",
+            })
         }
     }
-    
 }
 
 #[derive(

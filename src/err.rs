@@ -1,3 +1,3 @@
 pub enum DataError{
-    ConvertOutOfRange(&'static str)
+    ConvertOutOfRange{desc: &'static str}
 }
