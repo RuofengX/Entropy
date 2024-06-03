@@ -8,7 +8,6 @@ pub struct Model {
     pub id: u64,
     pub name: String,
     pub password: String,
-    pub guests: Vec<u32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -10,14 +10,17 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: u32, // FIXME: 构建表格后会出现两个id
     pub energy: u64,
+    #[sea_orm(index)]
     pub position: node::FlatID,
+    #[sea_orm(index)]
+    pub master: u64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
         belongs_to = "super::player::Entity",
-        from = "Column::Id",
+        from = "Column::Master",
         to = "super::player::Column::Id"
     )]
     Player,
