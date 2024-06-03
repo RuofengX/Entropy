@@ -10,7 +10,6 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub guest_id: u32,
     pub energy: u64,
-    #[sea_orm(index)]
     pub position: node::FlatID,
 }
 
@@ -19,16 +18,15 @@ pub enum Relation {
     #[sea_orm(
         belongs_to = "super::player::Entity",
         from = "Column::GuestId",
-        to = "super::player::Column::PlayerId"
+        to = "super::player::Column::Guests"
     )]
     Player,
     #[sea_orm(
         belongs_to = "super::node::Entity",
-        from = "Column::position",
-        to = "super::node::Column::Id"
+        from = "Column::Position",
+        to = "super::node::Column::Guests"
     )]
     Node,
-
 }
 
 impl Related<super::player::Entity> for Entity {
