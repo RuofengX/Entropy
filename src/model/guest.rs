@@ -8,7 +8,7 @@ use crate::node;
 #[sea_orm(table_name = "guest")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub id: u32,
+    pub id: u32, // FIXME: 构建表格后会出现两个id
     pub energy: u64,
     pub position: node::FlatID,
 }
