@@ -134,7 +134,7 @@ impl From<ID> for FlatID {
 }
 impl Into<ID> for FlatID {
     fn into(self) -> ID {
-        let high = (self.0 >> 32) as i16;
+        let high = (self.0 >> 16) as i16;
         let low = self.0 as i16;
         ID(high, low)
     }

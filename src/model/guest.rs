@@ -7,8 +7,8 @@ use crate::node;
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "guest")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub guest_id: u32,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub id: u32,
     pub energy: u64,
     pub position: node::FlatID,
 }
@@ -17,14 +17,14 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(
         belongs_to = "super::player::Entity",
-        from = "Column::GuestId",
-        to = "super::player::Column::Guests"
+        from = "Column::Id",
+        to = "super::player::Column::Id"
     )]
     Player,
     #[sea_orm(
         belongs_to = "super::node::Entity",
         from = "Column::Position",
-        to = "super::node::Column::Guests"
+        to = "super::node::Column::Id"
     )]
     Node,
 }

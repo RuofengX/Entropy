@@ -1,3 +1,3 @@
-mod guest;
-mod node;
-mod player;
+pub mod guest;
+pub mod node;
+pub mod player;

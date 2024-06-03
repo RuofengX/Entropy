@@ -4,8 +4,8 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "player")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub player_id: u64,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub id: u64,
     pub name: String,
     pub password: String,
     pub guests: Vec<u32>,
