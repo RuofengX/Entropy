@@ -6,16 +6,16 @@ use sea_orm::{prelude::*, Database, Schema};
 
 #[tokio::main]
 async fn main() -> Result<(), DbErr> {
-    println!("Hello, world!");
-    // Connecting SQLite
-    let db = Database::connect("postgres://postgres:1677@localhost:5432/entropy_test").await?;
+    let db = Database::connect("postgres://postgres:1677@localhost:5432/entropy").await?;
 
-    // Setup database schema
-    setup_schema(&db).await?;
+    match create_schema_test(&db).await {
+        Ok(_) => {}
+        Err(e) => println!("create schema failed, {:?}", e),
+    };
     Ok(())
 }
 
-async fn setup_schema(db: &DbConn) -> Result<(), DbErr> {
+async fn create_schema_test(db: &DbConn) -> Result<(), DbErr> {
     // Setup Schema helper
     let schema = Schema::new(db.get_database_backend());
 
@@ -32,12 +32,12 @@ async fn setup_schema(db: &DbConn) -> Result<(), DbErr> {
     ];
 
     for mut i in table_stmts {
-        db.execute(db.get_database_backend().build(i.if_not_exists())).await?;
+        db.execute(db.get_database_backend().build(i.if_not_exists()))
+            .await?;
     }
-    // for i in index_stmts {
-    //     for j in i {
-    //         db.execute(db.get_database_backend().build(&j)).await?;
-    //     }
-    // }
+    for mut i in index_stmts.into_iter().flatten() {
+        db.execute(db.get_database_backend().build(i.if_not_exists()))
+            .await?;
+    }
     Ok(())
 }
