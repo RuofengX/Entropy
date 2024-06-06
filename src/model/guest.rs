@@ -1,5 +1,5 @@
 use ordered_float::NotNan;
-use sea_orm::{entity::prelude::*, TransactionTrait};
+use sea_orm::{entity::prelude::*, IntoActiveModel, Set, TransactionError, TransactionTrait};
 
 use crate::grid;
 
@@ -19,8 +19,49 @@ pub struct Model {
 }
 
 impl Model {
-    fn get_efficiency(&self, cell: u8) -> f32 {
+    pub fn get_efficiency(&self, cell: u8) -> f32 {
         get_carnot_efficiency(self.temperature, cell)
+    }
+
+    pub async fn harvest(&self, db: &DbConn, cell_i: usize) -> Result<Self, DbErr> {
+        db.transaction::<_, Model, DbErr>(|txn| {
+            Box::pin(async move {
+                let mut n = node::Model::get_or_init(txn, self.position)
+                    .await?
+                    .into_active_model();
+                let (g, n) = self.generate(n.data.into_value()[cell_i]);
+                let rtn = g.save(txn).await?;
+                n.save(txn).await?;
+                Ok(rtn)
+            })
+        }).await.map_err(|e|)
+    }
+    fn generate(&self, node: &node::Model, cell_i: usize) -> (ActiveModel, node::ActiveModel) {
+        // Calculate the delta energy first
+        let temp = self.temperature;
+        let mut data = node.data.clone();
+        let cell = &mut data[cell_i];
+        let delta = self.temperature.abs_diff(*cell);
+        let delta = (self.get_efficiency(*cell) * delta as f32).floor() as u8;
+
+        // no overflow will happen, the efficiency proves that, so no need to check
+
+        // Determine which temperature is hotter and colder.
+        // and go change
+        let mut g = self.into_active_model();
+        let mut n = node.into_active_model();
+        if temp > *cell {
+            g.temperature = Set(temp - delta);
+            *cell += delta;
+        } else if temp < *cell {
+            g.temperature = Set(temp + delta);
+            *cell -= delta;
+        } else {
+            ()
+        };
+        g.energy = Set(self.energy + delta as u64);
+        n.data = Set(node.data.clone());
+        (g, n)
     }
 }
 impl ActiveModel {}
