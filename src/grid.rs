@@ -31,7 +31,7 @@ pub mod navi {
 /// | 3,4,5,
 /// | 6,7,8
 /// |------> x
-pub const INDEXED: [(i16, i16); 9] = [
+pub const INDEXED_NAVI: [(i16, i16); 9] = [
     (-1, 1),
     (0, 1),
     (1, 1),
@@ -44,8 +44,8 @@ pub const INDEXED: [(i16, i16); 9] = [
 ];
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
-pub struct Data(#[serde(with = "serde_bytes")] pub [u8; NODE_SIZE]);
-impl Data {
+pub struct NodeData(#[serde(with = "serde_bytes")] pub [u8; NODE_SIZE]);
+impl NodeData {
     pub fn random() -> Self {
         let mut rtn = [0u8; 1024];
         thread_rng().fill(&mut rtn);
@@ -60,17 +60,17 @@ impl Data {
         self.0.to_vec()
     }
 }
-impl From<[u8; NODE_SIZE]> for Data {
+impl From<[u8; NODE_SIZE]> for NodeData {
     fn from(value: [u8; NODE_SIZE]) -> Self {
-        Data(value)
+        NodeData(value)
     }
 }
 
-impl TryFrom<Vec<u8>> for Data {
+impl TryFrom<Vec<u8>> for NodeData {
     type Error = DataError;
     fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
         if let Some(b) = value.first_chunk::<NODE_SIZE>() {
-            Ok(Data(*b))
+            Ok(NodeData(*b))
         } else {
             Err(DataError::ConvertOutOfRange {
                 desc: "Data length not correct",
@@ -82,34 +82,24 @@ impl TryFrom<Vec<u8>> for Data {
 #[derive(
     Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
-pub struct ID(pub i16, pub i16);
-impl ID {
-    pub const POLAR_UP_LEFT: Self = ID(i16::MIN, i16::MAX);
-    pub const POLAR_UP_MIDDLE: Self = ID(0, i16::MAX);
-    pub const POLAR_UP_RIGHT: Self = ID(i16::MAX, i16::MAX);
-    pub const POLAR_LEFT_MIDDLE: Self = ID(i16::MIN, 0);
-    pub const POLAR_ORIGIN: Self = ID(0, 0);
-    pub const POLAR_RIGHT_MIDDLE: Self = ID(i16::MAX, 0);
-    pub const POLAR_DOWN_LEFT: Self = ID(i16::MIN, i16::MIN);
-    pub const POLAR_DOWN_MIDDLE: Self = ID(0, i16::MIN);
-    pub const POLAR_DOWN_RIGHT: Self = ID(i16::MAX, i16::MIN);
+pub struct NodeID(pub i16, pub i16);
+impl NodeID {
+    pub const POLAR_UP_LEFT: Self = NodeID(i16::MIN, i16::MAX);
+    pub const POLAR_UP_MIDDLE: Self = NodeID(0, i16::MAX);
+    pub const POLAR_UP_RIGHT: Self = NodeID(i16::MAX, i16::MAX);
+    pub const POLAR_LEFT_MIDDLE: Self = NodeID(i16::MIN, 0);
+    pub const POLAR_ORIGIN: Self = NodeID(0, 0);
+    pub const POLAR_RIGHT_MIDDLE: Self = NodeID(i16::MAX, 0);
+    pub const POLAR_DOWN_LEFT: Self = NodeID(i16::MIN, i16::MIN);
+    pub const POLAR_DOWN_MIDDLE: Self = NodeID(0, i16::MIN);
+    pub const POLAR_DOWN_RIGHT: Self = NodeID(i16::MAX, i16::MIN);
 }
 
-impl ID {
-    pub fn navi_to(&mut self, to: navi::Direction) -> ID {
+impl NodeID {
+    pub fn navi_to(&mut self, to: navi::Direction) -> NodeID {
         self.0 = self.0.wrapping_add(to.0);
         self.1 = self.1.wrapping_add(to.1);
         self.clone()
-    }
-}
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Node {
-    pub id: ID,
-    pub data: Data,
-}
-impl Node {
-    pub fn new(id: ID, data: Data) -> Self {
-        Node { id, data }
     }
 }
 
@@ -127,16 +117,16 @@ impl Node {
     DeriveValueType,
 )]
 pub struct FlatID(pub u32);
-impl From<ID> for FlatID {
-    fn from(value: ID) -> Self {
+impl From<NodeID> for FlatID {
+    fn from(value: NodeID) -> Self {
         FlatID((value.0 as u32) << 16 | (value.1) as u32)
     }
 }
-impl Into<ID> for FlatID {
-    fn into(self) -> ID {
+impl Into<NodeID> for FlatID {
+    fn into(self) -> NodeID {
         let high = (self.0 >> 16) as i16;
         let low = self.0 as i16;
-        ID(high, low)
+        NodeID(high, low)
     }
 }
 

@@ -1,6 +1,7 @@
+use ordered_float::NotNan;
 use sea_orm::entity::prelude::*;
 
-use crate::node;
+use crate::grid;
 
 
 
@@ -11,16 +12,17 @@ pub struct Model {
     pub id: u32, // FIXME: 构建表格后会出现两个id
     pub energy: u64,
     #[sea_orm(index)]
-    pub position: node::FlatID,
+    pub position: grid::FlatID,
+    pub temperature: u8,
     #[sea_orm(index)]
-    pub master: u64,
+    pub master_id: u64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
         belongs_to = "super::player::Entity",
-        from = "Column::Master",
+        from = "Column::MasterId",
         to = "super::player::Column::Id"
     )]
     Player,
@@ -45,3 +47,16 @@ impl Related<super::node::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+impl Model{
+    pub fn get_efficiency(&self, cell: u8) -> f32 {
+        get_carnot_efficiency(self.temperature, cell)
+    }
+}
+
+pub fn get_carnot_efficiency(one: u8, other: u8) -> f32 {
+    let one = unsafe { NotNan::new_unchecked(one as f32) };
+    let other = unsafe { NotNan::new_unchecked(other as f32) };
+    let (h, c) = if one > other { (*one, *other) } else { (*other, *one) };
+    1f32 - c / h
+}
