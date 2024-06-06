@@ -1,5 +1,12 @@
+use sea_orm::DbErr;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
 pub enum DataError {
-    ConvertOutOfRange { desc: &'static str },
+    #[error("Data out of range. Detail:{desc}")]
+    OutOfRange { desc: &'static str },
+    #[error("Backend database error.")]
+    Database(#[from] DbErr),
 }
 
 pub enum GuestError {
@@ -10,6 +17,4 @@ pub enum GuestError {
     },
 }
 
-pub enum PlayerError{
-
-}
+pub enum PlayerError {}

@@ -1,4 +1,4 @@
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, DatabaseTransaction, IntoActiveModel};
 
 use crate::grid;
 
@@ -29,6 +29,13 @@ impl Model {
         Model {
             id,
             data: grid::NodeData::random().to_vec(),
+        }
+    }
+    pub async fn get_or_init(txn: &DatabaseTransaction, id: grid::FlatID) -> Result<Model, DbErr> {
+        if let Some(node) = Entity::find_by_id(id).one(txn).await? {
+            Ok(node)
+        } else {
+            Model::random(id).into_active_model().insert(txn).await
         }
     }
 }

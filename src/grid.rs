@@ -72,7 +72,7 @@ impl TryFrom<Vec<u8>> for NodeData {
         if let Some(b) = value.first_chunk::<NODE_SIZE>() {
             Ok(NodeData(*b))
         } else {
-            Err(DataError::ConvertOutOfRange {
+            Err(DataError::OutOfRange {
                 desc: "Data length not correct",
             })
         }

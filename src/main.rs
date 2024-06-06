@@ -1,6 +1,6 @@
 pub mod err;
-mod model;
 pub mod grid;
+pub mod model;
 
 use sea_orm::{prelude::*, Database, Schema};
 
