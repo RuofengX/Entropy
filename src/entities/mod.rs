@@ -36,7 +36,7 @@ pub async fn register_player(
 
 pub async fn get_player(
     db: &DbConn,
-    id: u32,
+    id: i32,
     password: String,
 ) -> Result<Option<player::Model>, OperationError> {
     if let Some(player) = player::Entity::find_by_id(id)

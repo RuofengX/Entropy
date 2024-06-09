@@ -33,7 +33,7 @@ pub enum ApiError {
     Operation(#[from] OperationError),
 
     #[error("authorization error <- uid::{0} or password")]
-    AuthError(u32),
+    AuthError(i32),
 
     #[error("authorization header error")]
     AuthHeader,

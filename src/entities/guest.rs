@@ -13,7 +13,7 @@ use super::node::{self};
 #[sea_orm(table_name = "guest")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: u32,
+    pub id: i32,
     pub energy: u64,
     #[sea_orm(index)]
     pub position: grid::FlatID,

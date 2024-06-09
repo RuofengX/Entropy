@@ -19,14 +19,14 @@ pub struct PlayerRegister {
 
 #[derive(Debug, Deserialize)]
 pub struct PlayerAuth {
-    id: u32,
+    id: i32,
     password: String,
 }
 
 fn verify_header(auth: (String, Option<String>)) -> Result<PlayerAuth, ApiError> {
     let (id, password) = auth;
     let password = password.ok_or(ApiError::AuthHeader)?;
-    if let Ok(id) = id.parse::<u32>() {
+    if let Ok(id) = id.parse::<i32>() {
         Ok(PlayerAuth { id, password })
     } else {
         Err(ApiError::AuthHeader)
