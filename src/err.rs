@@ -1,6 +1,8 @@
 use sea_orm::DbErr;
 use thiserror::Error;
 
+use crate::grid::navi;
+
 #[derive(Error, Debug)]
 pub enum ModelError {
     #[error("backend database error <- {0}")]
@@ -23,6 +25,10 @@ pub enum OperationError {
     AlreadyHasGuest,
     #[error("player not exist <- request player id:{0}")]
     PlayerNotExist(i32),
+    #[error("guest not exist <- request guest id:{0}")]
+    GuestNotExist(i32),
+    #[error("navi direction not allowed <- request direction:{0:?}")]
+    DirectionNotAllowed(navi::Direction),
 }
 
 impl From<DbErr> for OperationError {

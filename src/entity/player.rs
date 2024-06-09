@@ -1,7 +1,7 @@
 use crate::{err::OperationError, grid::NodeID};
 
 use super::guest;
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, QuerySelect};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
@@ -39,6 +39,18 @@ impl Model {
         Ok(self.find_related(guest::Entity).all(db).await?)
     }
 
+    pub async fn list_guest_id<C: ConnectionTrait>(
+        &self,
+        db: &C,
+    ) -> Result<Vec<i32>, OperationError> {
+        Ok(self
+            .find_related(guest::Entity)
+            .column(guest::Column::Id)
+            .into_tuple()
+            .all(db)
+            .await?)
+    }
+
     pub async fn spawn_guest<C: ConnectionTrait>(
         &self,
         db: &C,
@@ -48,5 +60,19 @@ impl Model {
         } else {
             Err(OperationError::AlreadyHasGuest)
         }
+    }
+
+    pub async fn get_guest<C: ConnectionTrait>(
+        &self,
+        db: &C,
+        gid: i32,
+    ) -> Result<guest::Model, OperationError> {
+        let g = guest::Entity::find_by_id(gid).one(db).await?;
+        if let Some(g) = g {
+            if g.master_id == self.id {
+                return Ok(g);
+            }
+        };
+        Err(OperationError::GuestNotExist(gid))
     }
 }

@@ -5,19 +5,13 @@ use axum_auth::AuthBasic;
 use sea_orm::TransactionTrait;
 use serde::Deserialize;
 
-use crate::err::ApiError;
-use crate::grid::NodeID;
+use crate::err::{ApiError, OperationError};
+use crate::grid::{navi, NodeID, INDEXED_NAVI};
 use crate::{entity, grid};
 
 use super::AppState;
 use crate::entity::guest::Model as Guest;
 use crate::entity::player::Model as Player;
-
-#[derive(Debug, Deserialize)]
-pub struct PlayerRegister {
-    name: String,
-    password: String,
-}
 
 #[derive(Debug, Deserialize)]
 pub struct PlayerAuth {
@@ -33,6 +27,12 @@ fn verify_header(auth: (String, Option<String>)) -> Result<PlayerAuth, ApiError>
     } else {
         Err(ApiError::AuthHeader)
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PlayerRegister {
+    name: String,
+    password: String,
 }
 
 pub async fn register(
@@ -103,4 +103,54 @@ pub async fn get_node_bytes(
     let rtn = entity::get_node(&txn, NodeID::from_xy(x, y)).await?;
     txn.commit().await?;
     Ok(Bytes::from(rtn.data))
+}
+
+pub async fn get_guest(
+    State(state): State<AppState>,
+    Path(gid): Path<i32>,
+    AuthBasic(auth): AuthBasic,
+) -> Result<Json<Guest>, ApiError> {
+    let PlayerAuth { id, password } = verify_header(auth)?;
+
+    let txn = state.conn.begin().await?;
+    let p = entity::get_exact_player(&txn, id, password).await?;
+    let g = p.get_guest(&txn, gid).await?;
+    txn.commit().await?;
+    Ok(Json(g))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WalkCommand {
+    to: navi::Direction,
+}
+impl WalkCommand {
+    pub fn verify(&self) -> Result<(), OperationError> {
+        if INDEXED_NAVI.contains(&self.to) {
+            Ok(())
+        } else {
+            Err(OperationError::DirectionNotAllowed(self.to))
+        }
+    }
+}
+
+pub async fn walk(
+    State(state): State<AppState>,
+    AuthBasic(auth): AuthBasic,
+    Path(gid): Path<i32>,
+    Json(cmd): Json<WalkCommand>,
+) -> Result<Json<Guest>, ApiError> {
+
+    // verify
+    cmd.verify()?;
+    let PlayerAuth { id, password } = verify_header(auth)?;
+
+    // transaction
+    let txn = state.conn.begin().await?;
+    let p = entity::get_exact_player(&txn, id, password).await?;
+    let g = p.get_guest(&txn, gid).await?;
+    let g = g.walk(&txn, cmd.to).await?;
+    txn.commit().await?;
+
+    //return
+    Ok(Json(g))
 }

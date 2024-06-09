@@ -2,11 +2,7 @@ use std::fmt;
 
 use rand::{thread_rng, Rng, RngCore};
 use sea_orm::DeriveValueType;
-use serde::{
-    de::{self, Visitor},
-    ser::SerializeTupleStruct,
-    Deserialize, Serialize,
-};
+use serde::{de, ser::SerializeTupleStruct, Deserialize, Serialize, Serializer};
 
 use crate::entity::node;
 
@@ -73,7 +69,11 @@ impl NodeID {
     }
 
     pub fn into_i32(self) -> i32 {
-        FlatID::from(self).0
+        self.into_flat().0
+    }
+
+    pub fn into_flat(self) -> FlatID {
+        self.into()
     }
 
     pub fn navi_to(&mut self, to: navi::Direction) -> NodeID {
@@ -161,8 +161,26 @@ impl From<node::Model> for Node {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, DeriveValueType)]
-pub struct FlatID(i32);
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    DeriveValueType,
+)]
+pub struct FlatID(
+    #[serde(
+        serialize_with = "crate::grid::ser_flat",
+        deserialize_with = "crate::grid::de_flat"
+    )]
+    i32,
+);
 impl FlatID {
     pub fn into_node_id(self) -> NodeID {
         self.into()
@@ -202,52 +220,49 @@ impl Into<NodeID> for FlatID {
     }
 }
 
-impl Serialize for FlatID {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let (x, y) = self.clone().into_tuple();
-        let mut tuple = serializer.serialize_tuple_struct("FlatID", 4)?;
-        tuple.serialize_field(&x)?;
-        tuple.serialize_field(&y)?;
-        tuple.end()
-    }
+pub(crate) fn ser_flat<S>(id: &i32, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let (x, y) = FlatID::from(*id).into_tuple();
+    let mut tuple = serializer.serialize_tuple_struct("FlatID", 4)?;
+    tuple.serialize_field(&x)?;
+    tuple.serialize_field(&y)?;
+    tuple.end()
 }
-impl<'de> Deserialize<'de> for FlatID {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Debug)]
-        struct FlatIDVisitor;
 
-        impl<'de> Visitor<'de> for FlatIDVisitor {
-            type Value = FlatID;
+pub(crate) fn de_flat<'de, D>(deserializer: D) -> Result<i32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Debug)]
+    struct FlatIDVisitor;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a tuple of two i32 values")
-            }
+    impl<'de> de::Visitor<'de> for FlatIDVisitor {
+        type Value = i32;
 
-            fn visit_seq<A>(self, mut seq: A) -> Result<FlatID, A::Error>
-            where
-                A: de::SeqAccess<'de>,
-            {
-                let x = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                let y = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-
-                if seq.next_element::<()>()?.is_some() {
-                    return Err(de::Error::invalid_length(2, &self));
-                }
-
-                Ok(FlatID(x))
-            }
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a tuple of two i32 values")
         }
 
-        deserializer.deserialize_tuple_struct("FlatID", 2, FlatIDVisitor)
+        fn visit_seq<A>(self, mut seq: A) -> Result<i32, A::Error>
+        where
+            A: de::SeqAccess<'de>,
+        {
+            let x = seq
+                .next_element()?
+                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+            let y = seq
+                .next_element()?
+                .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+
+            if seq.next_element::<()>()?.is_some() {
+                return Err(de::Error::invalid_length(2, &self));
+            }
+
+            Ok(FlatID::from_xy(x, y).into())
+        }
     }
+
+    deserializer.deserialize_tuple_struct("FlatID", 2, FlatIDVisitor)
 }

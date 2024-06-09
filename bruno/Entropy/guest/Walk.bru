@@ -1,0 +1,20 @@
+meta {
+  name: Walk
+  type: http
+  seq: 2
+}
+
+post {
+  url: 0.0.0.0:3333/guest/1/walk
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "to": [
+      1,
+      1
+    ]
+  }
+}

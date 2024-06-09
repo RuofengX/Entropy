@@ -1,14 +1,13 @@
-use ordered_float::NotNan;
-use sea_orm::{
-    entity::prelude::*, ActiveValue::NotSet, DatabaseTransaction, IntoActiveModel, Set,
-    TransactionTrait, Unchanged,
-};
-use serde::{Deserialize, Serialize};
-
 use crate::{
     err::{ModelError, OperationError},
-    grid::{FlatID, NodeData, NodeID},
+    grid::{navi, FlatID, NodeData, NodeID},
 };
+use axum::async_trait;
+use ordered_float::NotNan;
+use sea_orm::{
+    entity::prelude::*, ActiveValue::NotSet, DatabaseTransaction, IntoActiveModel, Set, Unchanged,
+};
+use serde::{Deserialize, Serialize};
 
 use super::node::{self};
 
@@ -19,7 +18,11 @@ pub struct Model {
     pub id: i32,
     pub energy: i64,
     #[sea_orm(index)]
-    pub pos: FlatID,
+    #[serde(
+        serialize_with = "crate::grid::ser_flat",
+        deserialize_with = "crate::grid::de_flat"
+    )]
+    pub pos: i32,
     pub temperature: i16, // should be i8, but sea_orm always error
     #[sea_orm(index)]
     pub master_id: i32,
@@ -53,7 +56,19 @@ impl Related<super::node::Entity> for Entity {
     }
 }
 
-impl ActiveModelBehavior for ActiveModel {}
+#[async_trait]
+impl ActiveModelBehavior for ActiveModel {
+    async fn before_save<C>(self, db: &C, _insert: bool) -> Result<Self, DbErr>
+    where
+        C: ConnectionTrait,
+    {
+        let pos = self.pos.as_ref();
+        node::Model::ensure(db, FlatID::from(pos.clone()))
+            .await
+            .map_err(|e| DbErr::Custom(e.to_string()))?;
+        Ok(self)
+    }
+}
 
 pub fn get_carnot_efficiency(one: i8, other: i8) -> f32 {
     let one = unsafe { NotNan::new_unchecked(one as f32) };
@@ -75,11 +90,22 @@ impl Model {
         let g = ActiveModel {
             id: NotSet,
             energy: Set(0),
-            pos: Set(pos.into()),
+            pos: Set(pos.into_i32()),
             temperature: Set(0),
             master_id: Set(master_id),
         };
         Ok(g.insert(db).await?)
+    }
+
+    pub async fn walk<C: ConnectionTrait>(
+        &self,
+        db: &C,
+        to: navi::Direction,
+    ) -> Result<Model, OperationError> {
+        let at = FlatID::from(self.pos).into_node_id().navi_to(to);
+        let mut g = self.into_active_model();
+        g.pos = Set(at.into_i32());
+        Ok(g.update(db).await?)
     }
 
     pub fn get_efficiency(&self, cell: i8) -> f32 {
@@ -92,7 +118,7 @@ impl Model {
         txn: &DatabaseTransaction,
         cell_i: usize,
     ) -> Result<(self::Model, node::Model), OperationError> {
-        let node = node::Model::get_or_init(&txn, self.pos).await?;
+        let node = node::Model::get_or_init(&txn, FlatID::from(self.id).into()).await?;
         let (guest, node) = self.generate(node, cell_i)?;
         let modified_guest = guest.update(txn).await?;
         let modified_node = node.update(txn).await?;

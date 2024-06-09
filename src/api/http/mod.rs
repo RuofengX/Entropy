@@ -19,9 +19,10 @@ pub async fn start_http_service(address: &'static str, db: &DbConn) -> Result<()
         .route("/player/guest/spawn", get(handler::spawn_guest))
         .route("/node/:x/:y", get(handler::get_node))
         .route("/node/bytes/:x/:y", get(handler::get_node_bytes))
-        // // guest api
-        // .route("/guest/contain", get(api::guest::contain))
-        // .route("/guest/walk", post(api::guest::walk))
+        .route("/guest/:id", get(handler::get_guest))
+        .route("/guest/:id/walk", post(handler::walk))
+
+
         // .route("/guest/harvest", post(api::guest::harvest))
         // .route("/guest/heat", post(api::guest::heat))
         // other thing
@@ -41,7 +42,7 @@ pub async fn start_http_service(address: &'static str, db: &DbConn) -> Result<()
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        (StatusCode::INTERNAL_SERVER_ERROR, format!("{self}")).into_response() // change this into json
+        (StatusCode::NOT_ACCEPTABLE, format!("{self}")).into_response() // change this into json
     }
 }
 
