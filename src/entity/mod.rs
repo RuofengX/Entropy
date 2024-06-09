@@ -1,9 +1,12 @@
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DbConn, DbErr, EntityTrait,
-    QueryFilter, Set, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DatabaseTransaction, DbConn,
+    EntityTrait, QueryFilter, Set,
 };
 
-use crate::err::{OperationError, RuntimeError};
+use crate::{
+    err::{OperationError, RuntimeError},
+    grid::NodeID,
+};
 
 pub mod guest;
 pub mod node;
@@ -13,12 +16,11 @@ pub async fn check_database(db: &DbConn) -> Result<(), RuntimeError> {
     Ok(db.ping().await?)
 }
 
-pub async fn get_node(db: &DbConn, node_id: i32) -> Result<node::Model, DbErr> {
-    db.transaction::<_, node::Model, OperationError>(|txn| {
-        Box::pin(async move { node::Model::get_or_init(txn, node_id).await })
-    })
-    .await
-    .map_err(|e| DbErr::Custom(e.to_string()))
+pub async fn get_node(
+    txn: &DatabaseTransaction,
+    node_id: NodeID,
+) -> Result<node::Model, OperationError> {
+    Ok(node::Model::get_or_init(txn, node_id.into()).await?)
 }
 
 pub async fn register_player(

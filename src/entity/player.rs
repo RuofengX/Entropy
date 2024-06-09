@@ -1,7 +1,7 @@
 use crate::{err::OperationError, grid::NodeID};
 
 use super::guest;
-use sea_orm::{entity::prelude::*, QueryTrait};
+use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
@@ -44,7 +44,7 @@ impl Model {
         db: &C,
     ) -> Result<guest::Model, OperationError> {
         if self.count_guest(db).await? == 0 {
-            Ok(guest::Model::spawn(db, NodeID::ORIGIN.into(), self.id).await?)
+            Ok(guest::Model::spawn(db, NodeID::SITU.into(), self.id).await?)
         } else {
             Err(OperationError::AlreadyHasGuest)
         }

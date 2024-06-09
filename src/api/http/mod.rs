@@ -17,9 +17,8 @@ pub async fn start_http_service(address: &'static str, db: &DbConn) -> Result<()
         .route("/player", get(handler::get_player))
         .route("/player/guest", get(handler::list_guest))
         .route("/player/guest/spawn", get(handler::spawn_guest))
-        // // node api
-        // .route("/node/:x/:y", get(api::node::get_json))
-        // .route("/node/bytes/:x/:y", get(api::node::get_bytes))
+        .route("/node/:x/:y", get(handler::get_node))
+        .route("/node/bytes/:x/:y", get(handler::get_node_bytes))
         // // guest api
         // .route("/guest/contain", get(api::guest::contain))
         // .route("/guest/walk", post(api::guest::walk))

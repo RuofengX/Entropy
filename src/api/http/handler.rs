@@ -1,16 +1,17 @@
-use axum::extract::State;
+use axum::body::Bytes;
+use axum::extract::{Path, State};
 use axum::Json;
 use axum_auth::AuthBasic;
 use sea_orm::TransactionTrait;
 use serde::Deserialize;
 
-use crate::entities;
 use crate::err::ApiError;
+use crate::grid::NodeID;
+use crate::{entity, grid};
 
 use super::AppState;
-use crate::entities::guest::Model as Guest;
-use crate::entities::node::Model as Node;
-use crate::entities::player::Model as Player;
+use crate::entity::guest::Model as Guest;
+use crate::entity::player::Model as Player;
 
 #[derive(Debug, Deserialize)]
 pub struct PlayerRegister {
@@ -39,7 +40,7 @@ pub async fn register(
     Json(PlayerRegister { name, password }): Json<PlayerRegister>,
 ) -> Result<Json<Player>, ApiError> {
     Ok(Json(
-        entities::register_player(&state.conn, name, password).await?,
+        entity::register_player(&state.conn, name, password).await?,
     ))
 }
 
@@ -50,7 +51,7 @@ pub async fn get_player(
     let PlayerAuth { id, password } = verify_header(auth)?;
 
     Ok(Json(
-        entities::get_player(&state.conn, id, password)
+        entity::get_player(&state.conn, id, password)
             .await?
             .ok_or(ApiError::AuthError(id))?,
     ))
@@ -63,7 +64,7 @@ pub async fn list_guest(
     let PlayerAuth { id, password } = verify_header(auth)?;
 
     Ok(Json(
-        entities::get_player(&state.conn, id, password)
+        entity::get_player(&state.conn, id, password)
             .await?
             .ok_or(ApiError::AuthError(id))?
             .list_guest(&state.conn)
@@ -78,8 +79,28 @@ pub async fn spawn_guest(
     let PlayerAuth { id, password } = verify_header(auth)?;
 
     let txn = state.conn.begin().await?;
-    let p = entities::get_exact_player(&txn, id, password).await?;
+    let p = entity::get_exact_player(&txn, id, password).await?;
     let rtn = p.spawn_guest(&txn).await?;
     txn.commit().await?;
     Ok(Json(rtn))
+}
+
+pub async fn get_node(
+    State(state): State<AppState>,
+    Path((x, y)): Path<(i16, i16)>,
+) -> Result<Json<grid::Node>, ApiError> {
+    let txn = state.conn.begin().await?;
+    let n = entity::get_node(&txn, NodeID::from_xy(x, y)).await?;
+    txn.commit().await?;
+    Ok(Json(grid::Node::from(n)))
+}
+
+pub async fn get_node_bytes(
+    State(state): State<AppState>,
+    Path((x, y)): Path<(i16, i16)>,
+) -> Result<Bytes, ApiError> {
+    let txn = state.conn.begin().await?;
+    let rtn = entity::get_node(&txn, NodeID::from_xy(x, y)).await?;
+    txn.commit().await?;
+    Ok(Bytes::from(rtn.data))
 }

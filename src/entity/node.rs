@@ -1,15 +1,15 @@
-use sea_orm::{entity::prelude::*, Set};
+use sea_orm::{entity::prelude::*, DatabaseTransaction, Set};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     err::{OperationError, RuntimeError},
-    grid::{NodeData, NodeID},
+    grid::{FlatID, NodeData, NodeID},
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "node")]
 pub struct Model {
-    #[sea_orm(primary_key)]
+    #[sea_orm(primary_key, auto_increment = false)]
     pub id: i32,
     #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
@@ -30,26 +30,33 @@ impl Related<super::guest::Entity> for Entity {
 impl ActiveModelBehavior for ActiveModel {}
 
 impl Model {
-    pub async fn get_or_init<C: ConnectionTrait>(db: &C, id: i32) -> Result<Model, OperationError> {
-        if let Some(node) = Entity::find_by_id(id).one(db).await? {
+    pub async fn get_or_init(
+        txn: &DatabaseTransaction,
+        id: FlatID,
+    ) -> Result<Model, OperationError> {
+
+        if let Some(node) = Entity::find_by_id::<FlatID>(id)
+            .one(txn)
+            .await?
+        {
             Ok(node)
         } else {
             let n = ActiveModel {
-                id: Set(id),
+                id: Set(id.into()),
                 data: Set(NodeData::random().into()),
             };
-            Ok(n.insert(db).await?)
+            Ok(n.insert(txn).await?)
         }
     }
-    pub async fn prepare_origin<C: ConnectionTrait>(db: &C) -> Result<(), RuntimeError> {
-        if let Some(_) = Entity::find_by_id::<NodeID>(NodeID::ORIGIN).one(db).await? {
+    pub async fn prepare_origin(txn: &DatabaseTransaction) -> Result<(), RuntimeError> {
+        if let Some(_) = Entity::find_by_id(NodeID::SITU.into_i32()).one(txn).await? {
             return Ok(());
         } else {
             let n = ActiveModel {
-                id: Set(NodeID::ORIGIN.into()),
+                id: Set(NodeID::SITU.into_i32()),
                 data: Set(NodeData::random().into()),
             };
-            n.insert(db).await?;
+            n.insert(txn).await?;
             Ok(())
         }
     }

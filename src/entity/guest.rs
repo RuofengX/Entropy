@@ -1,12 +1,13 @@
 use ordered_float::NotNan;
 use sea_orm::{
-    entity::prelude::*, ActiveValue::NotSet, IntoActiveModel, Set, TransactionTrait, Unchanged,
+    entity::prelude::*, ActiveValue::NotSet, DatabaseTransaction, IntoActiveModel, Set,
+    TransactionTrait, Unchanged,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
     err::{ModelError, OperationError},
-    grid::NodeData,
+    grid::{FlatID, NodeData, NodeID},
 };
 
 use super::node::{self};
@@ -18,7 +19,7 @@ pub struct Model {
     pub id: i32,
     pub energy: i64,
     #[sea_orm(index)]
-    pub position: i32,
+    pub pos: FlatID,
     pub temperature: i16, // should be i8, but sea_orm always error
     #[sea_orm(index)]
     pub master_id: i32,
@@ -34,7 +35,7 @@ pub enum Relation {
     Player,
     #[sea_orm(
         belongs_to = "super::node::Entity",
-        from = "Column::Position",
+        from = "Column::Pos",
         to = "super::node::Column::Id"
     )]
     Node,
@@ -68,13 +69,13 @@ pub fn get_carnot_efficiency(one: i8, other: i8) -> f32 {
 impl Model {
     pub async fn spawn<C: ConnectionTrait>(
         db: &C,
-        pos: i32,
+        pos: NodeID,
         master_id: i32,
     ) -> Result<Model, OperationError> {
         let g = ActiveModel {
             id: NotSet,
             energy: Set(0),
-            position: Set(pos),
+            pos: Set(pos.into()),
             temperature: Set(0),
             master_id: Set(master_id),
         };
@@ -88,15 +89,13 @@ impl Model {
     async fn harvest(
         // need to rewrite
         self,
-        db: &DbConn,
+        txn: &DatabaseTransaction,
         cell_i: usize,
     ) -> Result<(self::Model, node::Model), OperationError> {
-        let txn = db.begin().await?; // some error magic to this sugar
-        let node = node::Model::get_or_init(&txn, self.position).await?;
+        let node = node::Model::get_or_init(&txn, self.pos).await?;
         let (guest, node) = self.generate(node, cell_i)?;
-        let modified_guest = guest.update(&txn).await?;
-        let modified_node = node.update(&txn).await?;
-        txn.commit().await?;
+        let modified_guest = guest.update(txn).await?;
+        let modified_node = node.update(txn).await?;
         Ok((modified_guest, modified_node))
     }
 
