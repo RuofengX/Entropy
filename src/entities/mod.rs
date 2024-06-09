@@ -1,4 +1,6 @@
-use sea_orm::{ActiveModelTrait, DbConn, DbErr, EntityTrait, QuerySelect, Set, TransactionTrait};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, Condition, DbConn, DbErr, EntityTrait, QueryFilter, Set, TransactionTrait
+};
 
 use crate::{
     err::{OperationError, RuntimeError},
@@ -39,17 +41,16 @@ pub async fn get_player(
     id: i32,
     password: String,
 ) -> Result<Option<player::Model>, OperationError> {
-    if let Some(player) = player::Entity::find_by_id(id)
-        .select_only()
-        .column(player::Column::Password)
+    if let Some(player) = player::Entity::find()
+        .filter(
+            Condition::all()
+                .add(player::Column::Id.eq(id))
+                .add(player::Column::Password.eq(password)),
+        )
         .one(db)
         .await?
     {
-        if password == player.password {
-            Ok(Some(player))
-        } else {
-            Ok(None)
-        }
+        Ok(Some(player))
     } else {
         Ok(None)
     }

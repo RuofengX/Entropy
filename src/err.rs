@@ -3,7 +3,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ModelError {
-    #[error("backend database error")]
+    #[error("backend database error <- {0}")]
     Database(#[from] DbErr),
     #[error("error while parse model <- {desc}")]
     Parse { desc: String },
