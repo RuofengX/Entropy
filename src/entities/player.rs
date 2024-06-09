@@ -1,5 +1,7 @@
+use crate::{err::OperationError, grid::NodeID};
+
 use super::guest;
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, QueryTrait};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
@@ -26,7 +28,25 @@ impl Related<super::guest::Entity> for Entity {
 impl ActiveModelBehavior for ActiveModel {}
 
 impl Model {
-    pub async fn list_guest(&self, db: &DbConn) -> Result<Vec<guest::Model>, DbErr> {
-        self.find_related(guest::Entity).all(db).await
+    pub async fn count_guest<C: ConnectionTrait>(&self, db: &C) -> Result<u64, OperationError> {
+        Ok(self.find_related(guest::Entity).count(db).await?)
+    }
+
+    pub async fn list_guest<C: ConnectionTrait>(
+        &self,
+        db: &C,
+    ) -> Result<Vec<guest::Model>, OperationError> {
+        Ok(self.find_related(guest::Entity).all(db).await?)
+    }
+
+    pub async fn spawn_guest<C: ConnectionTrait>(
+        &self,
+        db: &C,
+    ) -> Result<guest::Model, OperationError> {
+        if self.count_guest(db).await? == 0 {
+            Ok(guest::Model::spawn(db, NodeID::ORIGIN.into(), self.id).await?)
+        } else {
+            Err(OperationError::AlreadyHasGuest)
+        }
     }
 }

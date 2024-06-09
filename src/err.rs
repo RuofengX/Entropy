@@ -19,6 +19,10 @@ pub enum OperationError {
         energy_required: u64,
         operation: &'static str,
     },
+    #[error("player already has guest <- only player with no guest can spawn free guest")]
+    AlreadyHasGuest,
+    #[error("player not exist <- request player id:{0}")]
+    PlayerNotExist(i32),
 }
 
 impl From<DbErr> for OperationError {
@@ -39,12 +43,16 @@ pub enum ApiError {
     AuthHeader,
 }
 
+impl From<DbErr> for ApiError {
+    fn from(value: DbErr) -> Self {
+        ApiError::Operation(OperationError::Model(ModelError::Database(value)))
+    }
+}
 
 #[derive(Debug, Error)]
-pub enum RuntimeError{
+pub enum RuntimeError {
     #[error(transparent)]
     Database(#[from] DbErr),
     #[error(transparent)]
-    IO(#[from] std::io::Error)
+    IO(#[from] std::io::Error),
 }
-

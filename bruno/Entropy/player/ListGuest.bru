@@ -1,0 +1,11 @@
+meta {
+  name: ListGuest
+  type: http
+  seq: 3
+}
+
+get {
+  url: 0.0.0.0:3333/player/guest
+  body: json
+  auth: inherit
+}

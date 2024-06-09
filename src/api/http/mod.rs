@@ -13,14 +13,17 @@ pub async fn start_http_service(address: &'static str, db: &DbConn) -> Result<()
     let state = AppState { conn: db.clone() };
 
     let router = Router::new()
-        // soul api
-        .route("/player", get(handler::get_player))
+        // register
         .route("/player", post(handler::register))
+        // get
+        .route("/player", get(handler::get_player))
+        // list guest
+        .route("/player/guest", get(handler::list_guest))
+        .route("/player/guest/spawn", get(handler::spawn_guest))
         // // node api
         // .route("/node/:x/:y", get(api::node::get_json))
         // .route("/node/bytes/:x/:y", get(api::node::get_bytes))
         // // guest api
-        // .route("/guest", get(api::guest::get))
         // .route("/guest/contain", get(api::guest::contain))
         // .route("/guest/walk", post(api::guest::walk))
         // .route("/guest/harvest", post(api::guest::harvest))

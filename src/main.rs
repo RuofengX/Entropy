@@ -5,12 +5,12 @@ pub mod api;
 
 use api::http::start_http_service;
 use err::RuntimeError;
-use entities::check_database;
+use entities::{check_database, node};
 use sea_orm::{prelude::*, Database, Schema};
 
 #[tokio::main]
 async fn main() -> Result<(), RuntimeError>{
-    let db = Database::connect("postgres://postgres:1677@localhost:5432/entropy").await?;
+    let db = Database::connect("postgres://postgres@localhost:5432/entropy").await?;
     create_schema_test(&db).await?;
     println!("main >> checking database");
     check_database(&db).await?;
@@ -19,7 +19,7 @@ async fn main() -> Result<(), RuntimeError>{
     Ok(())
 }
 
-pub async fn create_schema_test(db: &DbConn) -> Result<(), DbErr> {
+pub async fn create_schema_test(db: &DbConn) -> Result<(), RuntimeError> {
     // Setup Schema helper
     let schema = Schema::new(db.get_database_backend());
 
@@ -43,5 +43,6 @@ pub async fn create_schema_test(db: &DbConn) -> Result<(), DbErr> {
         db.execute(db.get_database_backend().build(i.if_not_exists()))
             .await?;
     }
+    node::Model::prepare_origin(db).await?;
     Ok(())
 }

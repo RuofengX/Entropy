@@ -1,11 +1,9 @@
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, DbConn, DbErr, EntityTrait, QueryFilter, Set, TransactionTrait
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DbConn, DbErr, EntityTrait,
+    QueryFilter, Set, TransactionTrait,
 };
 
-use crate::{
-    err::{OperationError, RuntimeError},
-    grid::FlatID,
-};
+use crate::err::{OperationError, RuntimeError};
 
 pub mod guest;
 pub mod node;
@@ -15,8 +13,8 @@ pub async fn check_database(db: &DbConn) -> Result<(), RuntimeError> {
     Ok(db.ping().await?)
 }
 
-pub async fn get_node(db: &DbConn, node_id: FlatID) -> Result<node::Model, DbErr> {
-    db.transaction::<_, node::Model, DbErr>(|txn| {
+pub async fn get_node(db: &DbConn, node_id: i32) -> Result<node::Model, DbErr> {
+    db.transaction::<_, node::Model, OperationError>(|txn| {
         Box::pin(async move { node::Model::get_or_init(txn, node_id).await })
     })
     .await
@@ -36,8 +34,8 @@ pub async fn register_player(
     Ok(p.insert(db).await?)
 }
 
-pub async fn get_player(
-    db: &DbConn,
+pub async fn get_player<C: ConnectionTrait>(
+    db: &C,
     id: i32,
     password: String,
 ) -> Result<Option<player::Model>, OperationError> {
@@ -53,5 +51,25 @@ pub async fn get_player(
         Ok(Some(player))
     } else {
         Ok(None)
+    }
+}
+
+pub async fn get_exact_player<C: ConnectionTrait>(
+    db: &C,
+    id: i32,
+    password: String,
+) -> Result<player::Model, OperationError> {
+    if let Some(player) = player::Entity::find()
+        .filter(
+            Condition::all()
+                .add(player::Column::Id.eq(id))
+                .add(player::Column::Password.eq(password)),
+        )
+        .one(db)
+        .await?
+    {
+        Ok(player)
+    } else {
+        Err(OperationError::PlayerNotExist(id))
     }
 }

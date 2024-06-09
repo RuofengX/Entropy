@@ -1,0 +1,11 @@
+meta {
+  name: SpawnGuest
+  type: http
+  seq: 4
+}
+
+get {
+  url: 0.0.0.0:3333/player/guest/spawn
+  body: json
+  auth: inherit
+}

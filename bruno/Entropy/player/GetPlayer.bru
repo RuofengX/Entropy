@@ -1,13 +1,13 @@
 meta {
-  name: Register
+  name: GetPlayer
   type: http
-  seq: 2
+  seq: 1
 }
 
-post {
+get {
   url: 0.0.0.0:3333/player
   body: json
-  auth: none
+  auth: inherit
 }
 
 body:json {
