@@ -1,11 +1,14 @@
 use ordered_float::NotNan;
-use sea_orm::{entity::prelude::*, IntoActiveModel, Set, TransactionError, TransactionTrait};
+use sea_orm::{entity::prelude::*, IntoActiveModel, Set, TransactionTrait, Unchanged};
 
-use crate::grid;
+use crate::{
+    err::{self, ModelError, OperationError},
+    grid,
+};
 
-use super::node;
+use super::node::{self};
 
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "guest")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -23,24 +26,37 @@ impl Model {
         get_carnot_efficiency(self.temperature, cell)
     }
 
-    pub async fn harvest(&self, db: &DbConn, cell_i: usize) -> Result<Self, DbErr> {
-        db.transaction::<_, Model, DbErr>(|txn| {
-            Box::pin(async move {
-                let mut n = node::Model::get_or_init(txn, self.position)
-                    .await?
-                    .into_active_model();
-                let (g, n) = self.generate(n.data.into_value()[cell_i]);
-                let rtn = g.save(txn).await?;
-                n.save(txn).await?;
-                Ok(rtn)
-            })
-        }).await.map_err(|e|)
+    pub async fn harvest(
+        self,
+        db: &DbConn,
+        cell_i: usize,
+    ) -> Result<(self::Model, node::Model), err::OperationError> {
+        let txn = db.begin().await?;
+        let node = node::Model::get_or_init(&txn, self.position).await?;
+        let (guest, node) = self.generate(node, cell_i)?;
+        let modified_guest = guest.update(&txn).await?;
+        let modified_node = node.update(&txn).await?;
+        txn.commit().await?;
+        Ok((modified_guest, modified_node))
     }
-    fn generate(&self, node: &node::Model, cell_i: usize) -> (ActiveModel, node::ActiveModel) {
+
+    fn generate(
+        self,
+        node: node::Model,
+        cell_i: usize,
+    ) -> Result<(self::ActiveModel, node::ActiveModel), err::ModelError> {
+        let mut data = node.data;
+        let cell = data.get_mut(cell_i).ok_or(err::ModelError::Parse {
+            desc: format!(
+                "request length({1}) out of range <- node({0})",
+                node.id, cell_i
+            ),
+        })?;
+
+        let mut g = self.into_active_model();
+
         // Calculate the delta energy first
         let temp = self.temperature;
-        let mut data = node.data.clone();
-        let cell = &mut data[cell_i];
         let delta = self.temperature.abs_diff(*cell);
         let delta = (self.get_efficiency(*cell) * delta as f32).floor() as u8;
 
@@ -48,8 +64,6 @@ impl Model {
 
         // Determine which temperature is hotter and colder.
         // and go change
-        let mut g = self.into_active_model();
-        let mut n = node.into_active_model();
         if temp > *cell {
             g.temperature = Set(temp - delta);
             *cell += delta;
@@ -60,8 +74,11 @@ impl Model {
             ()
         };
         g.energy = Set(self.energy + delta as u64);
-        n.data = Set(node.data.clone());
-        (g, n)
+        let n = node::ActiveModel {
+            id: Unchanged(node.id),
+            data: Set(data),
+        };
+        Ok((g, n))
     }
 }
 impl ActiveModel {}

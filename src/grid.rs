@@ -1,9 +1,9 @@
 use rand::{thread_rng, Rng};
 use sea_orm::{DeriveValueType, TryFromU64};
 use serde::{Deserialize, Serialize};
-use std::{borrow::Borrow, hash::Hash};
+use std::{borrow::Borrow, fmt::Display, hash::Hash};
 
-use crate::err::DataError;
+use crate::err::ModelError;
 
 pub const NODE_SIZE: usize = 1024;
 
@@ -67,13 +67,13 @@ impl From<[u8; NODE_SIZE]> for NodeData {
 }
 
 impl TryFrom<Vec<u8>> for NodeData {
-    type Error = DataError;
+    type Error = ModelError;
     fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
         if let Some(b) = value.first_chunk::<NODE_SIZE>() {
             Ok(NodeData(*b))
         } else {
-            Err(DataError::OutOfRange {
-                desc: "Data length not correct",
+            Err(ModelError::Parse {
+                desc: format!("data length not correct <- {}", value.len()),
             })
         }
     }
@@ -117,6 +117,11 @@ impl NodeID {
     DeriveValueType,
 )]
 pub struct FlatID(pub u32);
+impl FlatID {
+    pub fn into_node_id(self) -> NodeID {
+        self.into()
+    }
+}
 impl From<NodeID> for FlatID {
     fn from(value: NodeID) -> Self {
         FlatID((value.0 as u32) << 16 | (value.1) as u32)
@@ -139,5 +144,12 @@ impl TryFromU64 for FlatID {
                 "Node index out of range. Database may be posioned.".to_string(),
             ))
         }
+    }
+}
+
+impl Display for FlatID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let id = self.clone().into_node_id();
+        f.write_fmt(format_args!("({0},{1})", id.0, id.1))
     }
 }
