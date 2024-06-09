@@ -1,14 +1,15 @@
 use ordered_float::NotNan;
 use sea_orm::{entity::prelude::*, IntoActiveModel, Set, TransactionTrait, Unchanged};
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    err::{self, ModelError, OperationError},
+    err::{ModelError, OperationError},
     grid,
 };
 
 use super::node::{self};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, DeriveEntityModel)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "guest")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -30,8 +31,8 @@ impl Model {
         self,
         db: &DbConn,
         cell_i: usize,
-    ) -> Result<(self::Model, node::Model), err::OperationError> {
-        let txn = db.begin().await?;
+    ) -> Result<(self::Model, node::Model), OperationError> {
+        let txn = db.begin().await?; // some error magic to this sugar
         let node = node::Model::get_or_init(&txn, self.position).await?;
         let (guest, node) = self.generate(node, cell_i)?;
         let modified_guest = guest.update(&txn).await?;
@@ -44,9 +45,9 @@ impl Model {
         self,
         node: node::Model,
         cell_i: usize,
-    ) -> Result<(self::ActiveModel, node::ActiveModel), err::ModelError> {
+    ) -> Result<(self::ActiveModel, node::ActiveModel), ModelError> {
         let mut data = node.data;
-        let cell = data.get_mut(cell_i).ok_or(err::ModelError::Parse {
+        let cell = data.get_mut(cell_i).ok_or(ModelError::Parse {
             desc: format!(
                 "request length({1}) out of range <- node({0})",
                 node.id, cell_i

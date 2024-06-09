@@ -1,8 +1,9 @@
 use sea_orm::entity::prelude::*;
+use serde::{Deserialize, Serialize};
 use super::guest;
 
 
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "player")]
 pub struct Model {
     #[sea_orm(primary_key)]

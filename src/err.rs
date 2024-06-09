@@ -12,7 +12,7 @@ pub enum ModelError {
 #[derive(Error, Debug)]
 pub enum OperationError {
     #[error(transparent)]
-    Model(ModelError),
+    Model(#[from] ModelError),
     #[error("energy not enough")]
     EnergyNotEnough {
         energy_reserve: u64,
@@ -20,3 +20,31 @@ pub enum OperationError {
         operation: &'static str,
     },
 }
+
+impl From<DbErr> for OperationError {
+    fn from(value: DbErr) -> Self {
+        OperationError::Model(ModelError::Database(value))
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum ApiError {
+    #[error(transparent)]
+    Operation(#[from] OperationError),
+
+    #[error("authorization error <- uid::{0} or password")]
+    AuthError(u32),
+
+    #[error("authorization header error")]
+    AuthHeader,
+}
+
+
+#[derive(Debug, Error)]
+pub enum RuntimeError{
+    #[error(transparent)]
+    Database(#[from] DbErr),
+    #[error(transparent)]
+    IO(#[from] std::io::Error)
+}
+

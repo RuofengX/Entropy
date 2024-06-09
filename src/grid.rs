@@ -112,9 +112,9 @@ impl NodeID {
     Eq,
     PartialOrd,
     Ord,
+    DeriveValueType,
     Serialize,
     Deserialize,
-    DeriveValueType,
 )]
 pub struct FlatID(pub u32);
 impl FlatID {

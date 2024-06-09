@@ -1,12 +1,14 @@
 use sea_orm::{entity::prelude::*, DatabaseTransaction, IntoActiveModel};
+use serde::{Deserialize, Serialize};
 
 use crate::grid;
 
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "node")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: grid::FlatID,
+    #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
 }
 
