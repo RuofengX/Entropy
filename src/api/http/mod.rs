@@ -13,11 +13,8 @@ pub async fn start_http_service(address: &'static str, db: &DbConn) -> Result<()
     let state = AppState { conn: db.clone() };
 
     let router = Router::new()
-        // register
         .route("/player", post(handler::register))
-        // get
         .route("/player", get(handler::get_player))
-        // list guest
         .route("/player/guest", get(handler::list_guest))
         .route("/player/guest/spawn", get(handler::spawn_guest))
         // // node api
