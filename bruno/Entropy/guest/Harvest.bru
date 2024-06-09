@@ -1,0 +1,17 @@
+meta {
+  name: Harvest
+  type: http
+  seq: 3
+}
+
+post {
+  url: 0.0.0.0:3333/guest/harvest/1
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "at": 5
+  }
+}

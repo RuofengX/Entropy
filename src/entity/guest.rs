@@ -1,12 +1,10 @@
 use crate::{
     err::{ModelError, OperationError},
-    grid::{navi, FlatID, NodeData, NodeID},
+    grid::{navi, FlatID, Node, NodeID},
 };
 use axum::async_trait;
 use ordered_float::NotNan;
-use sea_orm::{
-    entity::prelude::*, ActiveValue::NotSet, DatabaseTransaction, IntoActiveModel, Set, Unchanged,
-};
+use sea_orm::{entity::prelude::*, ActiveValue::NotSet, IntoActiveModel, Set, Unchanged};
 use serde::{Deserialize, Serialize};
 
 use super::node::{self};
@@ -71,6 +69,8 @@ impl ActiveModelBehavior for ActiveModel {
 }
 
 pub fn get_carnot_efficiency(one: i8, other: i8) -> f32 {
+    let one = one as i16 - i8::MIN as i16;
+    let other = other as i16 - i8::MIN as i16;
     let one = unsafe { NotNan::new_unchecked(one as f32) };
     let other = unsafe { NotNan::new_unchecked(other as f32) };
     let (h, c) = if one > other {
@@ -112,28 +112,15 @@ impl Model {
         get_carnot_efficiency(self.temperature as i8, cell)
     }
 
-    async fn harvest(
-        // need to rewrite
+    pub(crate) fn generate(
         self,
-        txn: &DatabaseTransaction,
-        cell_i: usize,
-    ) -> Result<(self::Model, node::Model), OperationError> {
-        let node = node::Model::get_or_init(&txn, FlatID::from(self.id).into()).await?;
-        let (guest, node) = self.generate(node, cell_i)?;
-        let modified_guest = guest.update(txn).await?;
-        let modified_node = node.update(txn).await?;
-        Ok((modified_guest, modified_node))
-    }
-
-    fn generate(
-        self,
-        node: node::Model,
+        node: Node,
         cell_i: usize,
     ) -> Result<(self::ActiveModel, node::ActiveModel), ModelError> {
-        let mut data = NodeData::from(node.data);
-        let mut cell = data.get(cell_i).ok_or(ModelError::Parse {
+        let mut data = node.data.clone();
+        let mut cell = node.data.get(cell_i).ok_or(ModelError::Parse {
             desc: format!(
-                "request length({1}) out of range <- node({0})",
+                "request length({1}) out of range <- node({0:?})",
                 node.id, cell_i
             ),
         })?;
@@ -143,7 +130,7 @@ impl Model {
         // Calculate the delta energy first
         let temp = self.temperature as i8;
         let delta = temp.abs_diff(cell);
-        let delta = (self.get_efficiency(cell) * delta as f32).floor() as u8;
+        let delta = (self.get_efficiency(cell) * delta as f32).div_euclid(2.0) as u8;
 
         // no overflow will happen, the efficiency proves that, so no need to check
 
@@ -161,7 +148,7 @@ impl Model {
         g.energy = Set(self.energy + delta as i64);
         data.set(cell_i, cell);
         let n = node::ActiveModel {
-            id: Unchanged(node.id),
+            id: Unchanged(node.id.into_i32()),
             data: Set(data.into()),
         };
         Ok((g, n))

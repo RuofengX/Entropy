@@ -20,12 +20,10 @@ pub async fn start_http_service(address: &'static str, db: &DbConn) -> Result<()
         .route("/node/:x/:y", get(handler::get_node))
         .route("/node/bytes/:x/:y", get(handler::get_node_bytes))
         .route("/guest/:id", get(handler::get_guest))
-        .route("/guest/:id/walk", post(handler::walk))
-
-
-        // .route("/guest/harvest", post(api::guest::harvest))
-        // .route("/guest/heat", post(api::guest::heat))
-        // other thing
+        .route("/guest/walk/:id", post(handler::walk))
+        .route("/guest/harvest/:id", post(handler::harvest))
+        // .route("/guest/heat", post(todo!()))
+        // .route("/guest/spawn", post(todo!()))
         .with_state(state);
 
     println!("apt::http >> http server listening at {}", address);

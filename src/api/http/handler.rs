@@ -2,11 +2,11 @@ use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::Json;
 use axum_auth::AuthBasic;
-use sea_orm::TransactionTrait;
+use sea_orm::{ActiveModelTrait, TransactionTrait};
 use serde::Deserialize;
 
 use crate::err::{ApiError, OperationError};
-use crate::grid::{navi, NodeID, INDEXED_NAVI};
+use crate::grid::{navi, FlatID, Node, NodeID, INDEXED_NAVI};
 use crate::{entity, grid};
 
 use super::AppState;
@@ -139,7 +139,6 @@ pub async fn walk(
     Path(gid): Path<i32>,
     Json(cmd): Json<WalkCommand>,
 ) -> Result<Json<Guest>, ApiError> {
-
     // verify
     cmd.verify()?;
     let PlayerAuth { id, password } = verify_header(auth)?;
@@ -152,5 +151,38 @@ pub async fn walk(
     txn.commit().await?;
 
     //return
+    Ok(Json(g))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HarvestCommand {
+    pub at: usize,
+}
+
+pub async fn harvest(
+    State(state): State<AppState>,
+    AuthBasic(auth): AuthBasic,
+    Path(gid): Path<i32>,
+    Json(cmd): Json<HarvestCommand>,
+) -> Result<Json<Guest>, ApiError> {
+    // verify
+    let PlayerAuth { id, password } = verify_header(auth)?;
+
+    // transaction
+    let txn = state.conn.begin().await?;
+    let p = entity::get_exact_player(&txn, id, password).await?;
+    let g = p.get_guest(&txn, gid).await?;
+    let pos = FlatID::from(g.pos);
+    let n = entity::get_node(&txn, pos.into()).await?;
+
+    let node: Node = Node::from_model(n);
+    let (g, n) = g
+        .generate(node, cmd.at)
+        .map_err(|e| ApiError::Operation(OperationError::Model(e)))?;
+    let g = g.update(&txn).await?;
+    n.update(&txn).await?;
+
+    txn.commit().await?;
+
     Ok(Json(g))
 }

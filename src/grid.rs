@@ -114,44 +114,39 @@ impl NodeData {
     pub fn set(&mut self, index: usize, value: i8) -> Option<()> {
         self.0.get_mut(index).map(|cell| *cell = value)
     }
-    pub fn to_be_bytes(self) -> Vec<u8> {
+    pub fn to_bytes(self) -> Vec<u8> {
         self.0
             .into_iter()
             .map(|cell| cell.to_be_bytes()[0])
             .collect()
     }
-    pub fn to_le_bytes(self) -> Vec<u8> {
-        self.0
-            .into_iter()
-            .map(|cell| cell.to_le_bytes()[0])
-            .collect()
-    }
-    pub fn from_be_bytes(value: Vec<u8>) -> Self {
+    pub fn from_bytes(value: Vec<u8>) -> Self {
         Self(value.into_iter().map(|b| i8::from_be_bytes([b])).collect())
-    }
-    pub fn from_le_bytes(value: Vec<u8>) -> Self {
-        Self(value.into_iter().map(|b| i8::from_le_bytes([b])).collect())
     }
 }
 
 /// Default big endian encoding
 impl Into<Vec<u8>> for NodeData {
     fn into(self) -> Vec<u8> {
-        self.to_be_bytes()
+        self.to_bytes()
     }
 }
 impl From<Vec<u8>> for NodeData {
     fn from(value: Vec<u8>) -> Self {
-        Self::from_be_bytes(value)
+        Self::from_bytes(value)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
-    id: NodeID,
-    data: NodeData,
+    pub id: NodeID,
+    pub data: NodeData,
 }
-impl Node {}
+impl Node {
+    pub fn from_model(value: node::Model) -> Self {
+        value.into()
+    }
+}
 impl From<node::Model> for Node {
     fn from(value: node::Model) -> Self {
         Node {
