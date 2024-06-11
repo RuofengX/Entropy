@@ -2,7 +2,7 @@ use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::Json;
 use axum_auth::AuthBasic;
-use sea_orm::{ActiveModelTrait, TransactionTrait};
+use sea_orm::{ActiveModelTrait, ModelTrait, TransactionTrait};
 use serde::Deserialize;
 
 use crate::err::{ApiError, OperationError};
@@ -185,4 +185,30 @@ pub async fn harvest(
     txn.commit().await?;
 
     Ok(Json(g))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ArrangeCommand {
+    pub transfer_energy: usize,
+}
+
+pub async fn arrange(
+    State(state): State<AppState>,
+    AuthBasic(auth): AuthBasic,
+    Path(gid): Path<i32>,
+    Json(cmd): Json<ArrangeCommand>,
+) -> Result<Json<Guest>, ApiError> {
+    // verify
+    let PlayerAuth { id, password } = verify_header(auth)?;
+
+    // transaction
+    let txn = state.conn.begin().await?;
+    let p = entity::get_exact_player(&txn, id, password).await?;
+    let g = p.get_guest(&txn, gid).await?;
+
+    todo!()
+    //TODO
+    g.arrange(&txn, consume_energy, transfer_energy);
+
+    todo!()
 }

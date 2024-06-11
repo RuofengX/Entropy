@@ -185,6 +185,10 @@ impl FlatID {
         self.into_node_id().into_tuple()
     }
 
+    pub fn from_i32(value: i32) -> Self{
+        Self::from(value)
+    }
+
     pub fn from_xy(x: i16, y: i16) -> Self {
         NodeID::from_xy(x, y).into()
     }

@@ -1,10 +1,14 @@
+use std::fmt::format;
+
 use crate::{
     err::{ModelError, OperationError},
     grid::{navi, FlatID, Node, NodeID},
 };
 use axum::async_trait;
 use ordered_float::NotNan;
-use sea_orm::{entity::prelude::*, ActiveValue::NotSet, IntoActiveModel, Set, Unchanged};
+use sea_orm::{
+    entity::prelude::*, ActiveValue::NotSet, DatabaseTransaction, IntoActiveModel, Set, Unchanged,
+};
 use serde::{Deserialize, Serialize};
 
 use super::node::{self};
@@ -108,6 +112,39 @@ impl Model {
         Ok(g.update(db).await?)
     }
 
+    /// Consume energy to introduce a new guest from an existing guest,
+    /// transfer energy from the old to new.
+    pub async fn arrange(
+        &self,
+        txn: &DatabaseTransaction,
+        consume_energy: i64,
+        transfer_energy: i64,
+    ) -> Result<Model, OperationError> {
+        let total_energy = consume_energy.checked_add(transfer_energy);
+        if total_energy.is_none() {
+            return Err(ModelError::OutOfLimit {
+                desc: format!("consume::{}|transfer::{}", consume_energy, transfer_energy),
+                limit_type: "i64",
+            }
+            .into());
+        };
+
+        self.verify_energy(consume_energy + transfer_energy)?;
+        let to = ActiveModel {
+            energy: Set(transfer_energy),
+            pos: Set(self.pos),
+            temperature: Set(0),
+            master_id: Set(self.master_id),
+            ..Default::default()
+        };
+        let mut from = self.into_active_model();
+        from.energy = Set(self.energy - transfer_energy);
+
+        let _g = from.insert(txn).await?;
+        let to = to.insert(txn).await?;
+        Ok(to)
+    }
+
     pub fn get_efficiency(&self, cell: i8) -> f32 {
         get_carnot_efficiency(self.temperature as i8, cell)
     }
@@ -152,5 +189,17 @@ impl Model {
             data: Set(data.into()),
         };
         Ok((g, n))
+    }
+
+    // Check if Guest has enough energy.
+    fn verify_energy(&self, request: i64) -> Result<(), OperationError> {
+        if self.energy >= request {
+            Ok(())
+        } else {
+            Err(OperationError::EnergyNotEnough {
+                energy_reserve: self.energy,
+                energy_required: request,
+            })
+        }
     }
 }

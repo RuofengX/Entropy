@@ -9,6 +9,11 @@ pub enum ModelError {
     Database(#[from] DbErr),
     #[error("error while parse model <- {desc}")]
     Parse { desc: String },
+    #[error("data out of limit::{limit_type} <- {desc}")]
+    OutOfLimit{
+        desc: String,
+        limit_type: &'static str,
+    },
 }
 
 #[derive(Error, Debug)]
@@ -17,9 +22,8 @@ pub enum OperationError {
     Model(#[from] ModelError),
     #[error("energy not enough")]
     EnergyNotEnough {
-        energy_reserve: u64,
-        energy_required: u64,
-        operation: &'static str,
+        energy_reserve: i64,
+        energy_required: i64,
     },
     #[error("player already has guest <- only player with no guest can spawn free guest")]
     AlreadyHasGuest,
