@@ -5,7 +5,7 @@ use crate::{
 use axum::async_trait;
 use ordered_float::NotNan;
 use sea_orm::{
-    entity::prelude::*, sea_query::PostgresQueryBuilder, ActiveValue::NotSet, DatabaseTransaction, IntoActiveModel, QueryTrait, Set, Unchanged
+    entity::prelude::*, ActiveValue::NotSet, DatabaseTransaction, IntoActiveModel, Set, Unchanged
 };
 use serde::{Deserialize, Serialize};
 
