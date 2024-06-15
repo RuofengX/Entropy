@@ -2,10 +2,10 @@ use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::Json;
 use axum_auth::AuthBasic;
-use sea_orm::{ActiveModelTrait, ModelTrait, TransactionTrait};
+use sea_orm::{ActiveModelTrait, TransactionTrait};
 use serde::Deserialize;
 
-use crate::err::{ApiError, OperationError};
+use crate::err::{ApiError, ModelError, OperationError};
 use crate::grid::{navi, FlatID, Node, NodeID, INDEXED_NAVI};
 use crate::{entity, grid};
 
@@ -189,7 +189,7 @@ pub async fn harvest(
 
 #[derive(Debug, Deserialize)]
 pub struct ArrangeCommand {
-    pub transfer_energy: usize,
+    pub transfer_energy: i64,
 }
 
 pub async fn arrange(
@@ -206,9 +206,26 @@ pub async fn arrange(
     let p = entity::get_exact_player(&txn, id, password).await?;
     let g = p.get_guest(&txn, gid).await?;
 
-    todo!()
-    //TODO
-    g.arrange(&txn, consume_energy, transfer_energy);
+    // consume energy
+    let g_count = p.count_guest(&txn).await?;
+    if g_count >= u32::MAX as u64 {
+        return Err(OperationError::Model(ModelError::OutOfLimit {
+            desc: format!("owned guest number"),
+            limit_type: "u32",
+        })
+        .into());
+    };
+    let g_count = g_count.try_into().map_err(|_| {
+        OperationError::Model(ModelError::OutOfLimit {
+            desc: format!("owned guest number"),
+            limit_type: "u32",
+        })
+    })?;
+    let consume_energy = 2i64.pow(g_count);
+    let g = g.consume_energy(&txn, consume_energy).await?;
+    let new_g = g.arrange_free(&txn, cmd.transfer_energy).await?;
 
-    todo!()
+    txn.commit().await?;
+
+    Ok(Json(new_g))
 }

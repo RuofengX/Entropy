@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use crate::{
     err::{ModelError, OperationError},
     grid::{navi, FlatID, Node, NodeID},
@@ -7,7 +5,7 @@ use crate::{
 use axum::async_trait;
 use ordered_float::NotNan;
 use sea_orm::{
-    entity::prelude::*, ActiveValue::NotSet, DatabaseTransaction, IntoActiveModel, Set, Unchanged,
+    entity::prelude::*, sea_query::PostgresQueryBuilder, ActiveValue::NotSet, DatabaseTransaction, IntoActiveModel, QueryTrait, Set, Unchanged
 };
 use serde::{Deserialize, Serialize};
 
@@ -112,24 +110,19 @@ impl Model {
         Ok(g.update(db).await?)
     }
 
-    /// Consume energy to introduce a new guest from an existing guest,
+    /// Introduce a new guest from an existing guest,
     /// transfer energy from the old to new.
-    pub async fn arrange(
+    ///
+    /// Return the new guest model.
+    /// 
+    /// This method will not take any energy cost, it's FREE
+    pub async fn arrange_free(
         &self,
         txn: &DatabaseTransaction,
-        consume_energy: i64,
         transfer_energy: i64,
     ) -> Result<Model, OperationError> {
-        let total_energy = consume_energy.checked_add(transfer_energy);
-        if total_energy.is_none() {
-            return Err(ModelError::OutOfLimit {
-                desc: format!("consume::{}|transfer::{}", consume_energy, transfer_energy),
-                limit_type: "i64",
-            }
-            .into());
-        };
+        self.consume_energy(txn, transfer_energy).await?;
 
-        self.verify_energy(consume_energy + transfer_energy)?;
         let to = ActiveModel {
             energy: Set(transfer_energy),
             pos: Set(self.pos),
@@ -137,13 +130,28 @@ impl Model {
             master_id: Set(self.master_id),
             ..Default::default()
         };
-        let mut from = self.into_active_model();
-        from.energy = Set(self.energy - transfer_energy);
 
-        let _g = from.insert(txn).await?;
         let to = to.insert(txn).await?;
+
         Ok(to)
     }
+
+    /// Consume energy of self energy and update database.
+    pub async fn consume_energy<C: ConnectionTrait>(
+        &self,
+        db: &C,
+        energy: i64,
+    ) -> Result<Model, OperationError> {
+        self.verify_energy(energy)?;
+
+        let mut g = self.into_active_model();
+        g.energy = Set(self.energy - energy);
+        let g: Model = g.update(db).await?;
+
+
+        Ok(g)
+    }
+
 
     pub fn get_efficiency(&self, cell: i8) -> f32 {
         get_carnot_efficiency(self.temperature as i8, cell)
@@ -191,15 +199,21 @@ impl Model {
         Ok((g, n))
     }
 
-    // Check if Guest has enough energy.
-    fn verify_energy(&self, request: i64) -> Result<(), OperationError> {
-        if self.energy >= request {
+    /// Check if Guest has enough energy.
+    /// 
+    /// Return Ok(()) if energy is enough
+    /// Return Err if energy is not enough
+    fn verify_energy(&self, require: i64) -> Result<(), OperationError> {
+        if self.energy >= require {
             Ok(())
         } else {
             Err(OperationError::EnergyNotEnough {
                 energy_reserve: self.energy,
-                energy_required: request,
+                energy_required: require,
             })
         }
     }
+
+
+
 }
