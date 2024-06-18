@@ -16,7 +16,7 @@ pub async fn start(address: String, db: &DbConn) -> Result<(), RuntimeError> {
 
     let router = Router::new()
         .route("/player/:id", get(handler::get_player_public))
-        .route("/player", post(handler::register))
+        .route("/player/register", post(handler::register))
         .route("/player/verify", get(handler::verify_player))
         .route("/player/guest", get(handler::list_guest))
         .route("/player/guest/spawn", get(handler::spawn_guest))
