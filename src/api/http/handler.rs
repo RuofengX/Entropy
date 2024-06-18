@@ -160,17 +160,18 @@ pub async fn walk(
     let p = entity::get_exact_player(&txn, id, password).await?;
     let g = p.get_guest(&txn, gid).await?;
 
+    // walk guest
+    let g_next = g.walk(&txn, cmd.to).await?;
+
     // exhaust wasted heat
     let n = entity::get_node(&txn, NodeID::from_i32(g.pos)).await?;
     let _n = n._walk_exhaust(&txn).await?;
 
-    // walk guest
-    let g = g.walk(&txn, cmd.to).await?;
 
     txn.commit().await?;
 
     //return
-    Ok(Json(g))
+    Ok(Json(g_next))
 }
 
 #[derive(Debug, Deserialize)]

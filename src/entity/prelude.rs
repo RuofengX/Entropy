@@ -3,7 +3,7 @@ use tracing::instrument;
 
 use crate::err::RuntimeError;
 
-#[instrument(skip(db), ret, err)]
+#[instrument(skip(db), err)]
 pub async fn ensure_database_schema(db: &DbConn) -> Result<(), RuntimeError> {
     // Setup Schema helper
     let schema = Schema::new(db.get_database_backend());

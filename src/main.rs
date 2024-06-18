@@ -1,21 +1,22 @@
 pub mod api;
+mod config;
 pub mod entity;
 pub mod err;
 pub mod grid;
-mod config;
 
 use std::path::PathBuf;
 
 use clap::Parser;
 use err::RuntimeError;
-use sea_orm::Database;
-use tracing::{info_span, warn};
+use sea_orm::{ConnectOptions, Database};
+use tracing::{info_span, warn, Level};
 use url::Url;
 
 #[tokio::main]
 async fn main() -> Result<(), RuntimeError> {
     // initiate event system
     tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG)
         .with_file(false)
         .with_line_number(false)
         .init();
@@ -33,7 +34,10 @@ async fn main() -> Result<(), RuntimeError> {
 
     let db = {
         let _db_span = info_span!("prepare_db").entered();
-        let db = Database::connect(&config.db).await?;
+        let db_opt = ConnectOptions::new(&config.db)
+            .sqlx_logging(false) // Disable SQLx log
+            .to_owned();
+        let db = Database::connect(db_opt).await?;
         let screen_url = Url::parse(&config.db)?; // db conn uri that shows on screen
         warn!(
             "checking database <- {}:{}",
@@ -46,7 +50,7 @@ async fn main() -> Result<(), RuntimeError> {
         db
     };
 
-    api::http::start(format!("{}:{}", config.address, config.port,), &db).await?;
+    api::http::http_daemon(format!("{}:{}", config.address, config.port,), &db).await?;
     Ok(())
 }
 

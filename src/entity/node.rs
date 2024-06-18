@@ -65,15 +65,17 @@ impl Model {
 
     // walk排放费热
     pub async fn _walk_exhaust<C: ConnectionTrait>(
-        mut self,
+        &self,
         db: &C,
     ) -> Result<Model, OperationError> {
         // 循环直到找到一个非 u8::MAX 的字节
-        for b in self.data.iter_mut() {
-            if b.checked_add(1).is_some() {
+        let mut buf = self.data.clone();
+        for b in buf.iter_mut() {
+            if *b < u8::MAX{
+                *b += 1;
                 let n = ActiveModel {
                     id: Set(self.id),
-                    data: Set(self.data),
+                    data: Set(buf),
                 };
                 let n = n.update(db).await?;
                 return Ok(n);
