@@ -9,6 +9,7 @@ pub mod guest;
 pub mod node;
 pub mod player;
 pub mod prelude;
+pub mod variant;
 
 pub async fn get_node(
     txn: &DatabaseTransaction,

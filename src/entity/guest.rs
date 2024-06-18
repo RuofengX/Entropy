@@ -11,7 +11,7 @@ use crate::{
     grid::{navi, FlatID, Node, NodeID},
 };
 
-use super::node;
+use super::{node, variant::DetectedGuest};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "guest")]
@@ -138,13 +138,14 @@ impl Model {
         Ok(to)
     }
 
-    pub async fn detect<C: ConnectionTrait>(&self, db: &C) -> Result<Vec<Model>, OperationError> {
+    pub async fn detect<C: ConnectionTrait>(&self, db: &C) -> Result<Vec<DetectedGuest>, OperationError> {
         let gs = Entity::find()
             .filter(
                 Condition::all()
                     .add(Column::Id.ne(self.id))
                     .add(Column::Pos.eq(self.pos)),
             )
+            .into_partial_model::<DetectedGuest>()
             .all(db)
             .await?;
         Ok(gs)

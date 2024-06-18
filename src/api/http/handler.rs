@@ -6,6 +6,7 @@ use sea_orm::{ActiveModelTrait, TransactionTrait};
 use serde::Deserialize;
 use tracing::{instrument, Level};
 
+use crate::entity::variant::DetectedGuest;
 use crate::err::{ApiError, ModelError, OperationError};
 use crate::grid::{navi, FlatID, Node, NodeID, INDEXED_NAVI};
 use crate::{entity, grid};
@@ -236,7 +237,7 @@ pub async fn detect(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
     Path(gid): Path<i32>,
-) -> Result<Json<Vec<Guest>>, ApiError> {
+) -> Result<Json<Vec<DetectedGuest>>, ApiError> {
     // verify
     let PlayerAuth { id, password } = verify_header(auth)?;
 
