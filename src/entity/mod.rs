@@ -2,6 +2,7 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DatabaseTransaction, EntityTrait,
     QueryFilter, Set,
 };
+use variant::PublicPlayer;
 
 use crate::{err::OperationError, grid::NodeID};
 
@@ -66,6 +67,21 @@ pub async fn get_exact_player<C: ConnectionTrait>(
         .await?
     {
         Ok(player)
+    } else {
+        Err(OperationError::PlayerNotExist(id))
+    }
+}
+
+pub async fn get_exact_player_public<C: ConnectionTrait>(
+    db: &C,
+    id: i32,
+) -> Result<PublicPlayer, OperationError> {
+    if let Some(p) = player::Entity::find_by_id(id)
+        .into_partial_model::<PublicPlayer>()
+        .one(db)
+        .await?
+    {
+        Ok(p)
     } else {
         Err(OperationError::PlayerNotExist(id))
     }

@@ -6,7 +6,7 @@ use sea_orm::{ActiveModelTrait, TransactionTrait};
 use serde::Deserialize;
 use tracing::{instrument, Level};
 
-use crate::entity::variant::DetectedGuest;
+use crate::entity::variant::{DetectedGuest, PublicPlayer};
 use crate::err::{ApiError, ModelError, OperationError};
 use crate::grid::{navi, FlatID, Node, NodeID, INDEXED_NAVI};
 use crate::{entity, grid};
@@ -28,6 +28,14 @@ pub struct PlayerRegister {
 }
 
 #[instrument(skip(state), ret, err(level = Level::INFO))]
+pub async fn get_player_public(
+    State(state): State<AppState>,
+    Path(id): Path<i32>,
+) -> Result<Json<PublicPlayer>, ApiError> {
+    Ok(Json(entity::get_exact_player_public(&state.conn, id).await?))
+}
+
+#[instrument(skip(state), ret, err(level = Level::INFO))]
 pub async fn register(
     State(state): State<AppState>,
     Json(PlayerRegister { name, password }): Json<PlayerRegister>,
@@ -38,7 +46,7 @@ pub async fn register(
 }
 
 #[instrument(skip(state, auth), ret, err(level = Level::INFO))]
-pub async fn get_player(
+pub async fn verify_player(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
 ) -> Result<Json<Player>, ApiError> {

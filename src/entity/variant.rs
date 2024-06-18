@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, DerivePartialModel, FromQueryResult)]
 #[sea_orm(entity = "super::player::Entity")]
-pub struct DetectedPlayer {
+pub struct PublicPlayer {
     pub id: i32,
     pub name: String,
 }

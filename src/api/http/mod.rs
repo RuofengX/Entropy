@@ -15,8 +15,9 @@ pub async fn start(address: String, db: &DbConn) -> Result<(), RuntimeError> {
     let state = AppState { conn: db.clone() };
 
     let router = Router::new()
+        .route("/player/:id", get(handler::get_player_public))
         .route("/player", post(handler::register))
-        .route("/player", get(handler::get_player))
+        .route("/player/verify", get(handler::verify_player))
         .route("/player/guest", get(handler::list_guest))
         .route("/player/guest/spawn", get(handler::spawn_guest))
         .route("/node/:x/:y", get(handler::get_node))
