@@ -2,13 +2,10 @@ use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::Json;
 use axum_auth::AuthBasic;
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, QueryFilter, TransactionTrait,
-};
+use sea_orm::{ActiveModelTrait, TransactionTrait};
 use serde::Deserialize;
 use tracing::{instrument, Level};
 
-use crate::entity::guest;
 use crate::err::{ApiError, ModelError, OperationError};
 use crate::grid::{navi, FlatID, Node, NodeID, INDEXED_NAVI};
 use crate::{entity, grid};
@@ -180,7 +177,7 @@ pub async fn harvest(
 
     let node: Node = Node::from_model(n);
     let (g, n) = g
-        .generate(node, cmd.at)
+        ._generate_active_model(node, cmd.at)
         .map_err(|e| ApiError::Operation(OperationError::Model(e)))?;
     let g = g.update(&txn).await?;
     n.update(&txn).await?;

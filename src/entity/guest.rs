@@ -1,15 +1,17 @@
+use axum::async_trait;
+use ordered_float::NotNan;
+use sea_orm::{
+    entity::prelude::*, ActiveValue::NotSet, Condition, DatabaseTransaction, IntoActiveModel, Set,
+    Unchanged,
+};
+use serde::{Deserialize, Serialize};
+
 use crate::{
     err::{ModelError, OperationError},
     grid::{navi, FlatID, Node, NodeID},
 };
-use axum::async_trait;
-use ordered_float::NotNan;
-use sea_orm::{
-    entity::prelude::*, ActiveValue::NotSet, Condition, DatabaseTransaction, IntoActiveModel, Set, Unchanged
-};
-use serde::{Deserialize, Serialize};
 
-use super::node::{self};
+use super::node;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "guest")]
@@ -167,7 +169,8 @@ impl Model {
         get_carnot_efficiency(self.temperature as i8, cell)
     }
 
-    pub(crate) fn generate(
+    // generate two middle model, handler use these model to do things left
+    pub fn _generate_active_model(
         self,
         node: Node,
         cell_i: usize,
