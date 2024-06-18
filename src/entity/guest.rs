@@ -65,7 +65,7 @@ impl ActiveModelBehavior for ActiveModel {
         C: ConnectionTrait,
     {
         let pos = self.pos.as_ref();
-        node::Model::ensure(db, FlatID::from(pos.clone()))
+        node::Model::_ensure(db, FlatID::from(pos.clone()))
             .await
             .map_err(|e| DbErr::Custom(e.to_string()))?;
         Ok(self)
@@ -106,9 +106,12 @@ impl Model {
         db: &C,
         to: navi::Direction,
     ) -> Result<Model, OperationError> {
+        self.verify_energy(1)?;
+
         let at = FlatID::from(self.pos).into_node_id().navi_to(to);
         let mut g = self.into_active_model();
         g.pos = Set(at.into_i32());
+        g.energy = Set(self.energy - 1);
         Ok(g.update(db).await?)
     }
 

@@ -1,7 +1,7 @@
 use sea_orm::DbErr;
 use thiserror::Error;
 
-use crate::grid::navi;
+use crate::grid::{navi, NodeID};
 
 #[derive(Error, Debug)]
 pub enum ModelError {
@@ -33,6 +33,9 @@ pub enum OperationError {
     GuestNotExist(i32),
     #[error("navi direction not allowed <- request direction:{0:?}")]
     DirectionNotAllowed(navi::Direction),
+    #[error("cannot exhaust heat <- node:{0:?} temperature too high")]
+    ExhaustNotAllowed(NodeID),
+
 }
 
 impl From<DbErr> for OperationError {

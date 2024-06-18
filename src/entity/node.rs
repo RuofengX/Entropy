@@ -63,10 +63,26 @@ impl Model {
         Ok(())
     }
 
-    pub(crate) async fn ensure<C: ConnectionTrait>(
+    // walk排放费热
+    pub async fn _walk_exhaust<C: ConnectionTrait>(
+        mut self,
         db: &C,
-        id: FlatID,
-    ) -> Result<(), OperationError> {
+    ) -> Result<Model, OperationError> {
+        // 循环直到找到一个非 u8::MAX 的字节
+        for b in self.data.iter_mut() {
+            if b.checked_add(1).is_some() {
+                let n = ActiveModel {
+                    id: Set(self.id),
+                    data: Set(self.data),
+                };
+                let n = n.update(db).await?;
+                return Ok(n);
+            }
+        }
+        Err(OperationError::ExhaustNotAllowed(NodeID::from_i32(self.id)))
+    }
+
+    pub async fn _ensure<C: ConnectionTrait>(db: &C, id: FlatID) -> Result<(), OperationError> {
         let n = ActiveModel {
             id: Set(id.into()),
             data: Set(NodeData::random().into()),

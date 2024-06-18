@@ -8,7 +8,7 @@ use tracing::{instrument, Level};
 
 use crate::entity::variant::{DetectedGuest, PublicPlayer};
 use crate::err::{ApiError, ModelError, OperationError};
-use crate::grid::{navi, FlatID, Node, NodeID, INDEXED_NAVI};
+use crate::grid::{navi, FlatID, Node, NodeID, ALLOWED_NAVI};
 use crate::{entity, grid};
 
 use super::AppState;
@@ -32,7 +32,9 @@ pub async fn get_player_public(
     State(state): State<AppState>,
     Path(id): Path<i32>,
 ) -> Result<Json<PublicPlayer>, ApiError> {
-    Ok(Json(entity::get_exact_player_public(&state.conn, id).await?))
+    Ok(Json(
+        entity::get_exact_player_public(&state.conn, id).await?,
+    ))
 }
 
 #[instrument(skip(state), ret, err(level = Level::INFO))]
@@ -132,7 +134,7 @@ pub struct WalkCommand {
 }
 impl WalkCommand {
     pub fn verify(&self) -> Result<(), OperationError> {
-        if INDEXED_NAVI.contains(&self.to) {
+        if ALLOWED_NAVI.contains(&self.to) {
             Ok(())
         } else {
             Err(OperationError::DirectionNotAllowed(self.to))
@@ -152,10 +154,19 @@ pub async fn walk(
     let PlayerAuth { id, password } = verify_header(auth)?;
 
     // transaction
+
+    // get guest
     let txn = state.conn.begin().await?;
     let p = entity::get_exact_player(&txn, id, password).await?;
     let g = p.get_guest(&txn, gid).await?;
+
+    // exhaust wasted heat
+    let n = entity::get_node(&txn, NodeID::from_i32(g.pos)).await?;
+    let _n = n._walk_exhaust(&txn).await?;
+
+    // walk guest
     let g = g.walk(&txn, cmd.to).await?;
+
     txn.commit().await?;
 
     //return

@@ -44,6 +44,8 @@ pub const INDEXED_NAVI: [(i16, i16); 9] = [
     (1, -1),
 ];
 
+pub const ALLOWED_NAVI: [(i16, i16); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
+
 #[derive(
     Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
@@ -59,6 +61,10 @@ impl NodeID {
     pub const DOWN_LEFT: Self = NodeID(i16::MIN, i16::MIN);
     pub const DOWN_MIDDLE: Self = NodeID(0, i16::MIN);
     pub const DOWN_RIGHT: Self = NodeID(i16::MAX, i16::MIN);
+
+    pub fn from_i32(value: i32) -> Self {
+        FlatID::from_i32(value).into_node_id()
+    }
 
     pub fn from_xy(x: i16, y: i16) -> Self {
         Self(x, y)
@@ -185,7 +191,7 @@ impl FlatID {
         self.into_node_id().into_tuple()
     }
 
-    pub fn from_i32(value: i32) -> Self{
+    pub fn from_i32(value: i32) -> Self {
         Self::from(value)
     }
 
