@@ -6,7 +6,7 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, EntityTrait, QueryFilter, TransactionTrait,
 };
 use serde::Deserialize;
-use tracing::instrument;
+use tracing::{instrument, Level};
 
 use crate::entity::guest;
 use crate::err::{ApiError, ModelError, OperationError};
@@ -23,23 +23,13 @@ pub struct PlayerAuth {
     password: String,
 }
 
-fn verify_header(auth: (String, Option<String>)) -> Result<PlayerAuth, ApiError> {
-    let (id, password) = auth;
-    let password = password.ok_or(ApiError::AuthHeader)?;
-    if let Ok(id) = id.parse::<i32>() {
-        Ok(PlayerAuth { id, password })
-    } else {
-        Err(ApiError::AuthHeader)
-    }
-}
-
 #[derive(Debug, Deserialize)]
 pub struct PlayerRegister {
     name: String,
     password: String,
 }
 
-#[instrument(skip(state))]
+#[instrument(skip(state), ret, err(level = Level::INFO))]
 pub async fn register(
     State(state): State<AppState>,
     Json(PlayerRegister { name, password }): Json<PlayerRegister>,
@@ -49,7 +39,7 @@ pub async fn register(
     ))
 }
 
-#[instrument(skip(state))]
+#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
 pub async fn get_player(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
@@ -63,7 +53,7 @@ pub async fn get_player(
     ))
 }
 
-#[instrument(skip(state))]
+#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
 pub async fn list_guest(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
@@ -79,7 +69,7 @@ pub async fn list_guest(
     ))
 }
 
-#[instrument(skip(state))]
+#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
 pub async fn spawn_guest(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
@@ -93,7 +83,7 @@ pub async fn spawn_guest(
     Ok(Json(rtn))
 }
 
-#[instrument(skip(state))]
+#[instrument(skip(state), ret, err(level = Level::INFO))]
 pub async fn get_node(
     State(state): State<AppState>,
     Path((x, y)): Path<(i16, i16)>,
@@ -104,7 +94,7 @@ pub async fn get_node(
     Ok(Json(grid::Node::from(n)))
 }
 
-#[instrument(skip(state))]
+#[instrument(skip(state), ret, err(level = Level::INFO))]
 pub async fn get_node_bytes(
     State(state): State<AppState>,
     Path((x, y)): Path<(i16, i16)>,
@@ -115,7 +105,7 @@ pub async fn get_node_bytes(
     Ok(Bytes::from(rtn.data))
 }
 
-#[instrument(skip(state))]
+#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
 pub async fn get_guest(
     State(state): State<AppState>,
     Path(gid): Path<i32>,
@@ -144,7 +134,7 @@ impl WalkCommand {
     }
 }
 
-#[instrument(skip(state))]
+#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
 pub async fn walk(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
@@ -171,7 +161,7 @@ pub struct HarvestCommand {
     pub at: usize,
 }
 
-#[instrument(skip(state))]
+#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
 pub async fn harvest(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
@@ -205,7 +195,7 @@ pub struct ArrangeCommand {
     pub transfer_energy: i64,
 }
 
-#[instrument(skip(state))]
+#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
 pub async fn arrange(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
@@ -244,7 +234,7 @@ pub async fn arrange(
     Ok(Json(new_g))
 }
 
-#[instrument(skip(state))]
+#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
 pub async fn detect(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
@@ -271,4 +261,14 @@ pub async fn detect(
     txn.commit().await?;
 
     Ok(Json(gs))
+}
+
+fn verify_header(auth: (String, Option<String>)) -> Result<PlayerAuth, ApiError> {
+    let (id, password) = auth;
+    let password = password.ok_or(ApiError::AuthHeader)?;
+    if let Ok(id) = id.parse::<i32>() {
+        Ok(PlayerAuth { id, password })
+    } else {
+        Err(ApiError::AuthHeader)
+    }
 }

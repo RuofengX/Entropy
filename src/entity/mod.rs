@@ -1,6 +1,6 @@
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DatabaseTransaction, DbConn,
-    EntityTrait, QueryFilter, Set,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DatabaseTransaction, EntityTrait,
+    QueryFilter, Set,
 };
 
 use crate::{err::OperationError, grid::NodeID};
@@ -8,6 +8,7 @@ use crate::{err::OperationError, grid::NodeID};
 pub mod guest;
 pub mod node;
 pub mod player;
+pub mod prelude;
 
 pub async fn get_node(
     txn: &DatabaseTransaction,
@@ -16,8 +17,8 @@ pub async fn get_node(
     Ok(node::Model::get_or_init(txn, node_id.into()).await?)
 }
 
-pub async fn register_player(
-    db: &DbConn,
+pub async fn register_player<C: ConnectionTrait>(
+    db: &C,
     name: String,
     password: String,
 ) -> Result<player::Model, OperationError> {

@@ -5,14 +5,12 @@ pub mod grid;
 
 use std::path::PathBuf;
 
-use api::http::http_service;
 use clap::Parser;
-use entity::node;
 use err::RuntimeError;
-use sea_orm::{prelude::*, Database, Schema, TransactionTrait};
+use sea_orm::Database;
 use serde::{Deserialize, Serialize};
 use tokio::{fs::File, io::AsyncReadExt};
-use tracing::{info_span, warn, warn_span};
+use tracing::{info_span, warn};
 use url::Url;
 
 #[tokio::main]
@@ -45,42 +43,11 @@ async fn main() -> Result<(), RuntimeError> {
         );
         db.ping().await?;
         warn!("database connected");
-        ensure_database_schema(&db).await?;
+        entity::prelude::ensure_database_schema(&db).await?;
         db
     };
 
-    http_service(format!("{}:{}", config.address, config.port,), &db).await?;
-    Ok(())
-}
-
-pub async fn ensure_database_schema(db: &DbConn) -> Result<(), RuntimeError> {
-    let _ensure = warn_span!("ensure_schema");
-    // Setup Schema helper
-    let schema = Schema::new(db.get_database_backend());
-
-    // Derive from Entity
-    let table_stmts = vec![
-        schema.create_table_from_entity(entity::node::Entity),
-        schema.create_table_from_entity(entity::player::Entity),
-        schema.create_table_from_entity(entity::guest::Entity),
-    ];
-    let index_stmts = vec![
-        schema.create_index_from_entity(entity::node::Entity),
-        schema.create_index_from_entity(entity::player::Entity),
-        schema.create_index_from_entity(entity::guest::Entity),
-    ];
-
-    for mut i in table_stmts {
-        db.execute(db.get_database_backend().build(i.if_not_exists()))
-            .await?;
-    }
-    for mut i in index_stmts.into_iter().flatten() {
-        db.execute(db.get_database_backend().build(i.if_not_exists()))
-            .await?;
-    }
-    let txn = db.begin().await?;
-    node::Model::prepare_origin(&txn).await?;
-    txn.commit().await?;
+    api::http::start(format!("{}:{}", config.address, config.port,), &db).await?;
     Ok(())
 }
 

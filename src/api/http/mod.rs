@@ -11,7 +11,7 @@ use crate::err::{ApiError, RuntimeError};
 pub mod handler;
 
 #[instrument(skip(db))]
-pub async fn http_service(address: String, db: &DbConn) -> Result<(), RuntimeError> {
+pub async fn start(address: String, db: &DbConn) -> Result<(), RuntimeError> {
     let state = AppState { conn: db.clone() };
 
     let router = Router::new()
