@@ -34,6 +34,7 @@ impl Related<super::guest::Entity> for Entity {
 impl ActiveModelBehavior for ActiveModel {}
 
 impl Model {
+    // this method MAY use quary multiple times, so transaction is required
     pub async fn get_or_init(
         txn: &DatabaseTransaction,
         id: NodeID,
@@ -48,6 +49,7 @@ impl Model {
             Ok(n.insert(txn).await?)
         }
     }
+
     pub async fn prepare_origin<C: ConnectionTrait>(db: &C) -> Result<(), RuntimeError> {
         let n = ActiveModel {
             id: Set(NodeID::SITU.into_i32()),
