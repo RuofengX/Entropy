@@ -1,0 +1,17 @@
+meta {
+  name: Detect
+  type: http
+  seq: 5
+}
+
+get {
+  url: 0.0.0.0:3333/guest/detect/1
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "transfer_energy": 1
+  }
+}

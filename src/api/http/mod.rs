@@ -23,10 +23,11 @@ pub async fn start_http_service(address: &'static str, db: &DbConn) -> Result<()
         .route("/guest/walk/:id", post(handler::walk))
         .route("/guest/harvest/:id", post(handler::harvest))
         .route("/guest/arrange/:id", post(handler::arrange))
+        .route("/guest/detect/:id", get(handler::detect))
         // .route("/guest/heat", post(todo!()))
         .with_state(state);
 
-    println!("apt::http >> http server listening at {}", address);
+    println!("api::http >> http server listening at {}", address);
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();
 
     Ok(axum::serve(listener, router)

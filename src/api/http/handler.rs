@@ -2,9 +2,12 @@ use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::Json;
 use axum_auth::AuthBasic;
-use sea_orm::{ActiveModelTrait, TransactionTrait};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, QueryFilter, TransactionTrait,
+};
 use serde::Deserialize;
 
+use crate::entity::guest;
 use crate::err::{ApiError, ModelError, OperationError};
 use crate::grid::{navi, FlatID, Node, NodeID, INDEXED_NAVI};
 use crate::{entity, grid};
@@ -228,4 +231,32 @@ pub async fn arrange(
     txn.commit().await?;
 
     Ok(Json(new_g))
+}
+
+pub async fn detect(
+    State(state): State<AppState>,
+    AuthBasic(auth): AuthBasic,
+    Path(gid): Path<i32>,
+) -> Result<Json<Vec<Guest>>, ApiError> {
+    // verify
+    let PlayerAuth { id, password } = verify_header(auth)?;
+
+    // transaction begin
+    let txn = state.conn.begin().await?;
+    let p = entity::get_exact_player(&txn, id, password).await?;
+    let g = p.get_guest(&txn, gid).await?;
+
+    // quary
+    let gs = guest::Entity::find()
+        .filter(
+            Condition::all()
+                .add(guest::Column::Id.ne(g.id))
+                .add(guest::Column::Pos.eq(g.pos)),
+        )
+        .all(&txn)
+        .await?;
+
+    txn.commit().await?;
+
+    Ok(Json(gs))
 }

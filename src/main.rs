@@ -10,7 +10,7 @@ use sea_orm::{prelude::*, Database, Schema, TransactionTrait};
 
 #[tokio::main]
 async fn main() -> Result<(), RuntimeError>{
-    let db = Database::connect("postgres://postgres@localhost:5432/entropy").await?;
+    let db = Database::connect("postgres://postgres:123456@localhost:5432/entropy").await?;
     create_schema_test(&db).await?;
     println!("main >> checking database");
     check_database(&db).await?;
