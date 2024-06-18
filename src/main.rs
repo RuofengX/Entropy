@@ -5,39 +5,56 @@ pub mod grid;
 
 use std::path::PathBuf;
 
-use api::http::start_http_service;
-use clap::{Parser, Subcommand};
+use api::http::http_service;
+use clap::Parser;
 use entity::node;
 use err::RuntimeError;
 use sea_orm::{prelude::*, Database, Schema, TransactionTrait};
 use serde::{Deserialize, Serialize};
 use tokio::{fs::File, io::AsyncReadExt};
+use tracing::{info_span, warn, warn_span};
 use url::Url;
 
 #[tokio::main]
 async fn main() -> Result<(), RuntimeError> {
-    let cli = Cli::parse();
-    let config = parse_config(cli.config).await?;
-    match cli.command {
-        Commands::Run => {
-            let db = Database::connect(&config.db).await?;
-            let screen_url = Url::parse(&config.db)?;
-            println!(
-                "main >> checking database <- {}:{}",
-                screen_url.host_str().ok_or(url::ParseError::EmptyHost)?,
-                screen_url.port().ok_or(url::ParseError::InvalidPort)?
-            );
-            db.ping().await?;
-            println!("main >> database connected");
+    // initiate event system
+    tracing_subscriber::fmt()
+        .with_file(false)
+        .with_line_number(false)
+        .init();
 
-            ensure_database_schema(&db).await?;
-            start_http_service(format!("{}:{}", config.address, config.port,), &db).await?;
-        }
-    }
+    let _main_span = info_span!("root").entered();
+
+    let cli = {
+        let _cli_span = info_span!("command_line_parse").entered();
+        Cli::parse()
+    };
+    let config = {
+        let _config_span = info_span!("read_config").entered();
+        parse_config(cli.config).await?
+    };
+
+    let db = {
+        let _db_span = info_span!("prepare_db").entered();
+        let db = Database::connect(&config.db).await?;
+        let screen_url = Url::parse(&config.db)?; // db conn uri that shows on screen
+        warn!(
+            "checking database <- {}:{}",
+            screen_url.host_str().ok_or(url::ParseError::EmptyHost)?,
+            screen_url.port().ok_or(url::ParseError::InvalidPort)?
+        );
+        db.ping().await?;
+        warn!("database connected");
+        ensure_database_schema(&db).await?;
+        db
+    };
+
+    http_service(format!("{}:{}", config.address, config.port,), &db).await?;
     Ok(())
 }
 
 pub async fn ensure_database_schema(db: &DbConn) -> Result<(), RuntimeError> {
+    let _ensure = warn_span!("ensure_schema");
     // Setup Schema helper
     let schema = Schema::new(db.get_database_backend());
 
@@ -64,7 +81,6 @@ pub async fn ensure_database_schema(db: &DbConn) -> Result<(), RuntimeError> {
     let txn = db.begin().await?;
     node::Model::prepare_origin(&txn).await?;
     txn.commit().await?;
-    println!("main::ensure_schema >> database schema ensured");
     Ok(())
 }
 
@@ -77,15 +93,6 @@ struct Cli {
     #[arg(help = "path to config file")]
     #[arg(default_value = "entropy.toml")]
     config: PathBuf,
-
-    #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// does testing things
-    Run,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

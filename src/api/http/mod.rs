@@ -5,11 +5,13 @@ use axum::{
     Router,
 };
 use sea_orm::DbConn;
+use tracing::{instrument, warn};
 
 use crate::err::{ApiError, RuntimeError};
 pub mod handler;
 
-pub async fn start_http_service(address: String, db: &DbConn) -> Result<(), RuntimeError> {
+#[instrument(skip(db))]
+pub async fn http_service(address: String, db: &DbConn) -> Result<(), RuntimeError> {
     let state = AppState { conn: db.clone() };
 
     let router = Router::new()
@@ -27,14 +29,13 @@ pub async fn start_http_service(address: String, db: &DbConn) -> Result<(), Runt
         // .route("/guest/heat", post(todo!()))
         .with_state(state);
 
-    println!("api::http >> http server listening at {}", address);
+    warn!("http server listening at {}", address);
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();
 
     Ok(axum::serve(listener, router)
         .with_graceful_shutdown(async {
             let _ = tokio::signal::ctrl_c().await;
-            println!("api::http >> \n");
-            println!("api::http >> stop signal caught");
+            warn!("stop signal caught");
         })
         .await?)
 }
@@ -45,7 +46,7 @@ impl IntoResponse for ApiError {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct AppState {
     pub conn: DbConn,
 }

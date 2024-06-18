@@ -8,15 +8,20 @@ license = "GPL-3.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-axum = { version = "0.7.5", features = ["macros", "ws"] }
+axum = { version = "0.7.5", features = ["macros", "tracing", "ws"] }
 axum-auth = "0.7.0"
 clap = { version = "4.5.7", features = ["derive"] }
 ordered-float = "4.2.0"
 rand = "0.8.5"
-sea-orm = { version = "0.12.15" , features = ["sqlx-postgres", "runtime-tokio-rustls"]}
+sea-orm = { version = "0.12.15", features = [
+    "sqlx-postgres",
+    "runtime-tokio-rustls",
+] }
 serde = "1.0.203"
 serde_bytes = "0.11.14"
 thiserror = "1.0.61"
 tokio = { version = "1.38.0", features = ["full"] }
 toml = { version = "0.8.14", features = ["parse"] }
+tracing = { version = "0.1.40", default-features = false, features = ["attributes", "max_level_trace", "release_max_level_warn"] }
+tracing-subscriber = "0.3.18"
 url = "2.5.1"
