@@ -225,8 +225,8 @@ impl Model {
             Ok(())
         } else {
             Err(OperationError::EnergyNotEnough {
-                energy_reserve: self.energy,
-                energy_required: require,
+                require: require,
+                reserve: self.energy,
             })
         }
     }

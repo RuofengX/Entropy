@@ -2,7 +2,7 @@ use sea_orm::{entity::prelude::*, sea_query::OnConflict, DatabaseTransaction, Se
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    err::{OperationError, RuntimeError},
+    err::{ModelError, OperationError, RuntimeError},
     grid::{FlatID, NodeData, NodeID},
 };
 
@@ -63,25 +63,58 @@ impl Model {
         Ok(())
     }
 
-    // walk排放费热
+    // walk排放费热，不可直接使用
     pub async fn _walk_exhaust<C: ConnectionTrait>(
-        &self,
+        mut self,
         db: &C,
     ) -> Result<Model, OperationError> {
         // 循环直到找到一个非 u8::MAX 的字节
-        let mut buf = self.data.clone();
-        for b in buf.iter_mut() {
-            if *b < u8::MAX{
+        for b in self.data.iter_mut() {
+            if *b < u8::MAX {
                 *b += 1;
                 let n = ActiveModel {
                     id: Set(self.id),
-                    data: Set(buf),
+                    data: Set(self.data),
                 };
                 let n = n.update(db).await?;
                 return Ok(n);
             }
         }
-        Err(OperationError::ExhaustNotAllowed(NodeID::from_i32(self.id)))
+        Err(OperationError::NodeTemperatureTooHigh(NodeID::from_i32(
+            self.id,
+        )))
+    }
+
+    // 直接加热，不可直接使用
+    pub async fn _heat<C: ConnectionTrait>(
+        mut self,
+        db: &C,
+        i: usize,
+        energy: i64,
+    ) -> Result<Model, OperationError> {
+        let len = self.data.len();
+        let cell = self
+            .data
+            .get_mut(i)
+            .ok_or(OperationError::CellIndexOutOfRange {
+                node: NodeID::from_i32(self.id),
+                require: i,
+                max: len,
+            })?;
+        *cell = cell
+            .checked_add(energy.try_into().map_err(|_| ModelError::OutOfLimit {
+                desc: "heat energy".to_string(),
+                limit_type: "u8",
+            })?)
+            .ok_or(OperationError::CellTemperatureTooHigh {
+                node: NodeID::from_i32(self.id),
+                index: i,
+            })?;
+        let n = ActiveModel {
+            id: Set(self.id),
+            data: Set(self.data),
+        };
+        Ok(n.update(db).await?)
     }
 
     pub async fn _ensure<C: ConnectionTrait>(db: &C, id: FlatID) -> Result<(), OperationError> {

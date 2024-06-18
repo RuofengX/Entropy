@@ -272,6 +272,35 @@ pub async fn detect(
     Ok(Json(gs))
 }
 
+#[derive(Debug, Deserialize)]
+pub struct HeatCommand {
+    pub at: usize,
+    pub energy: i64,
+}
+
+#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
+pub async fn heat(
+    State(state): State<AppState>,
+    AuthBasic(auth): AuthBasic,
+    Path(gid): Path<i32>,
+    Json(cmd): Json<HeatCommand>,
+) -> Result<Json<Guest>, ApiError> {
+    // verify
+    let PlayerAuth { id, password } = verify_header(auth)?;
+
+    // transaction
+    let txn = state.conn.begin().await?;
+    let p = entity::get_exact_player(&txn, id, password).await?;
+    let g = p.get_guest(&txn, gid).await?;
+    let n = entity::get_node(&txn, NodeID::from_i32(g.pos)).await?;
+    n._heat(&txn, cmd.at, cmd.energy).await?;
+    let g = g.consume_energy(&txn, cmd.energy).await?;
+
+    txn.commit().await?;
+
+    Ok(Json(g))
+}
+
 fn verify_header(auth: (String, Option<String>)) -> Result<PlayerAuth, ApiError> {
     let (id, password) = auth;
     let password = password.ok_or(ApiError::AuthHeader)?;

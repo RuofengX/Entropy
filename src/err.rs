@@ -10,7 +10,7 @@ pub enum ModelError {
     #[error("error while parse model <- {desc}")]
     Parse { desc: String },
     #[error("data out of limit::{limit_type} <- {desc}")]
-    OutOfLimit{
+    OutOfLimit {
         desc: String,
         limit_type: &'static str,
     },
@@ -20,11 +20,8 @@ pub enum ModelError {
 pub enum OperationError {
     #[error(transparent)]
     Model(#[from] ModelError),
-    #[error("energy not enough")]
-    EnergyNotEnough {
-        energy_reserve: i64,
-        energy_required: i64,
-    },
+    #[error("energy not enough <- require:{require}, reserve:{reserve}")]
+    EnergyNotEnough { require: i64, reserve: i64 },
     #[error("player already has guest <- only player with no guest can spawn free guest")]
     AlreadyHasGuest,
     #[error("player not exist <- request player id:{0}")]
@@ -33,9 +30,19 @@ pub enum OperationError {
     GuestNotExist(i32),
     #[error("navi direction not allowed <- request direction:{0:?}")]
     DirectionNotAllowed(navi::Direction),
-    #[error("cannot exhaust heat <- node:{0:?} temperature too high")]
-    ExhaustNotAllowed(NodeID),
-
+    #[error("cannot exhaust heat <- node:{0:?}")]
+    NodeTemperatureTooHigh(NodeID),
+    #[error("index longer than node:{node:?} index <- required:{require}, max length:{max}")]
+    CellIndexOutOfRange {
+        node: NodeID,
+        require: usize,
+        max: usize,
+    },
+    #[error("cannot exhaust heat <- index:{index}@node:{node:?}")]
+    CellTemperatureTooHigh{
+        node: NodeID,
+        index: usize,
+    },
 }
 
 impl From<DbErr> for OperationError {

@@ -27,7 +27,7 @@ pub async fn http_daemon(address: String, db: &DbConn) -> Result<(), RuntimeErro
         .route("/guest/harvest/:id", post(handler::harvest))
         .route("/guest/arrange/:id", post(handler::arrange))
         .route("/guest/detect/:id", get(handler::detect))
-        // .route("/guest/heat", post(todo!()))
+        .route("/guest/heat/:id", post(handler::heat))
         .with_state(state);
 
     warn!("http server listening at {}", address);
