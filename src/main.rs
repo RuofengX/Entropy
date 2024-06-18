@@ -2,14 +2,13 @@ pub mod api;
 pub mod entity;
 pub mod err;
 pub mod grid;
+mod config;
 
 use std::path::PathBuf;
 
 use clap::Parser;
 use err::RuntimeError;
 use sea_orm::Database;
-use serde::{Deserialize, Serialize};
-use tokio::{fs::File, io::AsyncReadExt};
 use tracing::{info_span, warn};
 use url::Url;
 
@@ -29,7 +28,7 @@ async fn main() -> Result<(), RuntimeError> {
     };
     let config = {
         let _config_span = info_span!("read_config").entered();
-        parse_config(cli.config).await?
+        config::read_from_file(cli.config).await?
     };
 
     let db = {
@@ -60,20 +59,4 @@ struct Cli {
     #[arg(help = "path to config file")]
     #[arg(default_value = "entropy.toml")]
     config: PathBuf,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Config {
-    db: String,
-    address: String,
-    port: u16,
-}
-
-async fn parse_config(path: PathBuf) -> Result<Config, RuntimeError> {
-    let mut file = File::open(path).await?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents).await?;
-
-    let config: Config = toml::from_str(&contents)?;
-    Ok(config)
 }
