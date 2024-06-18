@@ -5,7 +5,7 @@ use crate::{
 use axum::async_trait;
 use ordered_float::NotNan;
 use sea_orm::{
-    entity::prelude::*, ActiveValue::NotSet, DatabaseTransaction, IntoActiveModel, Set, Unchanged
+    entity::prelude::*, ActiveValue::NotSet, Condition, DatabaseTransaction, IntoActiveModel, Set, Unchanged
 };
 use serde::{Deserialize, Serialize};
 
@@ -114,7 +114,7 @@ impl Model {
     /// transfer energy from the old to new.
     ///
     /// Return the new guest model.
-    /// 
+    ///
     /// This method will not take any energy cost, it's FREE
     pub async fn arrange_free(
         &self,
@@ -136,6 +136,18 @@ impl Model {
         Ok(to)
     }
 
+    pub async fn detect<C: ConnectionTrait>(&self, db: &C) -> Result<Vec<Model>, OperationError> {
+        let gs = Entity::find()
+            .filter(
+                Condition::all()
+                    .add(Column::Id.ne(self.id))
+                    .add(Column::Pos.eq(self.pos)),
+            )
+            .all(db)
+            .await?;
+        Ok(gs)
+    }
+
     /// Consume energy of self energy and update database.
     pub async fn consume_energy<C: ConnectionTrait>(
         &self,
@@ -148,10 +160,8 @@ impl Model {
         g.energy = Set(self.energy - energy);
         let g: Model = g.update(db).await?;
 
-
         Ok(g)
     }
-
 
     pub fn get_efficiency(&self, cell: i8) -> f32 {
         get_carnot_efficiency(self.temperature as i8, cell)
@@ -200,7 +210,7 @@ impl Model {
     }
 
     /// Check if Guest has enough energy.
-    /// 
+    ///
     /// Return Ok(()) if energy is enough
     /// Return Err if energy is not enough
     fn verify_energy(&self, require: i64) -> Result<(), OperationError> {
@@ -213,7 +223,4 @@ impl Model {
             })
         }
     }
-
-
-
 }

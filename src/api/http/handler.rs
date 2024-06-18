@@ -243,23 +243,14 @@ pub async fn detect(
     // verify
     let PlayerAuth { id, password } = verify_header(auth)?;
 
-    // transaction begin
+    // transaction
     let txn = state.conn.begin().await?;
     let p = entity::get_exact_player(&txn, id, password).await?;
     let g = p.get_guest(&txn, gid).await?;
+    let gs = g.detect(&txn).await?;
 
-    // quary
-    let gs = guest::Entity::find()
-        .filter(
-            Condition::all()
-                .add(guest::Column::Id.ne(g.id))
-                .add(guest::Column::Pos.eq(g.pos)),
-        )
-        .all(&txn)
-        .await?;
-
+    // return
     txn.commit().await?;
-
     Ok(Json(gs))
 }
 
