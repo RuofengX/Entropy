@@ -9,7 +9,7 @@ use sea_orm::DbConn;
 use crate::err::{ApiError, RuntimeError};
 pub mod handler;
 
-pub async fn start_http_service(address: &'static str, db: &DbConn) -> Result<(), RuntimeError> {
+pub async fn start_http_service(address: String, db: &DbConn) -> Result<(), RuntimeError> {
     let state = AppState { conn: db.clone() };
 
     let router = Router::new()

@@ -65,4 +65,8 @@ pub enum RuntimeError {
     Database(#[from] DbErr),
     #[error(transparent)]
     IO(#[from] std::io::Error),
+    #[error(transparent)]
+    Config(#[from] toml::de::Error),
+    #[error(transparent)]
+    UrlParse(#[from] url::ParseError),
 }

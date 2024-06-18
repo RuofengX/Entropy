@@ -1,25 +1,43 @@
+pub mod api;
+pub mod entity;
 pub mod err;
 pub mod grid;
-pub mod entity;
-pub mod api;
+
+use std::path::PathBuf;
 
 use api::http::start_http_service;
+use clap::{Parser, Subcommand};
+use entity::node;
 use err::RuntimeError;
-use entity::{check_database, node};
 use sea_orm::{prelude::*, Database, Schema, TransactionTrait};
+use serde::{Deserialize, Serialize};
+use tokio::{fs::File, io::AsyncReadExt};
+use url::Url;
 
 #[tokio::main]
-async fn main() -> Result<(), RuntimeError>{
-    let db = Database::connect("postgres://postgres:123456@localhost:5432/entropy").await?;
-    create_schema_test(&db).await?;
-    println!("main >> checking database");
-    check_database(&db).await?;
-    println!("main >> database connected");
-    start_http_service("0.0.0.0:3333", &db).await?;
+async fn main() -> Result<(), RuntimeError> {
+    let cli = Cli::parse();
+    let config = parse_config(cli.config).await?;
+    match cli.command {
+        Commands::Run => {
+            let db = Database::connect(&config.db).await?;
+            let screen_url = Url::parse(&config.db)?;
+            println!(
+                "main >> checking database <- {}:{}",
+                screen_url.host_str().ok_or(url::ParseError::EmptyHost)?,
+                screen_url.port().ok_or(url::ParseError::InvalidPort)?
+            );
+            db.ping().await?;
+            println!("main >> database connected");
+
+            ensure_database_schema(&db).await?;
+            start_http_service(format!("{}:{}", config.address, config.port,), &db).await?;
+        }
+    }
     Ok(())
 }
 
-pub async fn create_schema_test(db: &DbConn) -> Result<(), RuntimeError> {
+pub async fn ensure_database_schema(db: &DbConn) -> Result<(), RuntimeError> {
     // Setup Schema helper
     let schema = Schema::new(db.get_database_backend());
 
@@ -46,5 +64,42 @@ pub async fn create_schema_test(db: &DbConn) -> Result<(), RuntimeError> {
     let txn = db.begin().await?;
     node::Model::prepare_origin(&txn).await?;
     txn.commit().await?;
+    println!("main::ensure_schema >> database schema ensured");
     Ok(())
+}
+
+#[derive(Parser)]
+#[command(name = "entropy")]
+#[command(about = "a rust game server")]
+struct Cli {
+    /// Config file
+    #[arg(short, long)]
+    #[arg(help = "path to config file")]
+    #[arg(default_value = "entropy.toml")]
+    config: PathBuf,
+
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// does testing things
+    Run,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Config {
+    db: String,
+    address: String,
+    port: u16,
+}
+
+async fn parse_config(path: PathBuf) -> Result<Config, RuntimeError> {
+    let mut file = File::open(path).await?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).await?;
+
+    let config: Config = toml::from_str(&contents)?;
+    Ok(config)
 }

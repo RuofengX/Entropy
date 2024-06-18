@@ -3,18 +3,11 @@ use sea_orm::{
     EntityTrait, QueryFilter, Set,
 };
 
-use crate::{
-    err::{OperationError, RuntimeError},
-    grid::NodeID,
-};
+use crate::{err::OperationError, grid::NodeID};
 
 pub mod guest;
 pub mod node;
 pub mod player;
-
-pub async fn check_database(db: &DbConn) -> Result<(), RuntimeError> {
-    Ok(db.ping().await?)
-}
 
 pub async fn get_node(
     txn: &DatabaseTransaction,
