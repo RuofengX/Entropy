@@ -106,13 +106,13 @@ impl NodeData {
     pub fn random() -> Self {
         let mut rng = SmallRng::from_entropy();
         let length = rng.gen_range(0..NODE_MAX_SIZE);
-        let mut rtn = vec![0u8; length];
-        rng.fill_bytes(&mut rtn);
-        let rtn = rtn
+        let mut rnt = vec![0u8; length];
+        rng.fill_bytes(&mut rnt);
+        let rnt = rnt
             .into_iter()
             .map(|cell| i8::from_be_bytes([cell]))
             .collect();
-        Self(rtn)
+        Self(rnt)
     }
     pub fn get(&self, index: usize) -> Option<i8> {
         self.0.get(index).map(|x| *x)

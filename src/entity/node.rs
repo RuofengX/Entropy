@@ -1,6 +1,7 @@
 use rand::{rngs::SmallRng, seq::IteratorRandom, SeedableRng};
 use sea_orm::{entity::prelude::*, sea_query::OnConflict, DatabaseTransaction, Set};
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::{
     err::{ModelError, OperationError, RuntimeError},
@@ -40,7 +41,7 @@ impl Model {
         txn: &DatabaseTransaction,
         id: NodeID,
     ) -> Result<Model, OperationError> {
-        if let Some(node) = Entity::find_by_id(id.into_flat()).one(txn).await? {
+        if let Some(node) = Entity::find_by_id(id.into_i32()).one(txn).await? {
             Ok(node)
         } else {
             let n = ActiveModel {
@@ -51,7 +52,12 @@ impl Model {
         }
     }
 
+    #[instrument(skip(db), err)]
     pub async fn prepare_origin<C: ConnectionTrait>(db: &C) -> Result<(), RuntimeError> {
+        if Entity::find_by_id(NodeID::SITU.into_i32()).count(db).await? == 1{
+            return Ok(())
+        };
+
         let n = ActiveModel {
             id: Set(NodeID::SITU.into_i32()),
             data: Set(NodeData::random().into()),

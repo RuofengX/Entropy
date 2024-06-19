@@ -174,7 +174,7 @@ impl Model {
     }
 
     // generate two middle model, handler use these model to do things left
-    pub fn _generate_active_model(
+    pub fn _harvest_active_model(
         self,
         node: Node,
         cell_i: usize,

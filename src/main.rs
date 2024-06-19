@@ -46,7 +46,8 @@ async fn main() -> Result<(), RuntimeError> {
         );
         db.ping().await?;
         warn!("database connected");
-        entity::prelude::ensure_database_schema(&db).await?;
+        entity::prelude::ensure_schema(&db).await?;
+        entity::node::Model::prepare_origin(&db).await?;
         db
     };
 

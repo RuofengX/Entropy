@@ -36,8 +36,8 @@ pub async fn http_daemon(
         .route("/guest/heat/:id", post(handler::heat))
         .with_state(state);
 
-    warn!("http server listening at {}", address);
-    let listener = tokio::net::TcpListener::bind(address).await.unwrap();
+    warn!("http server listening at {address}:{port}");
+    let listener = tokio::net::TcpListener::bind((address, port)).await.unwrap();
 
     Ok(axum::serve(listener, router)
         .with_graceful_shutdown(async {

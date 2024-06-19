@@ -3,15 +3,14 @@ use axum::extract::{Path, State};
 use axum::Json;
 use axum_auth::AuthBasic;
 use sea_orm::{
-    AccessMode, ActiveModelTrait, DatabaseConnection, DatabaseTransaction, DbErr, IsolationLevel,
-    TransactionTrait,
+    AccessMode, DatabaseConnection, DatabaseTransaction, DbErr, IsolationLevel, TransactionTrait,
 };
 use serde::Deserialize;
 use tracing::{instrument, Level};
 
 use crate::entity::variant::{DetectedGuest, PublicPlayer};
-use crate::err::{ApiError, ModelError, OperationError};
-use crate::grid::{navi, FlatID, Node, NodeID, ALLOWED_NAVI};
+use crate::err::{ApiError, OperationError};
+use crate::grid::{navi, NodeID, ALLOWED_NAVI};
 use crate::{entity, grid};
 
 use super::AppState;
@@ -88,9 +87,7 @@ pub async fn verify_player(
     let PlayerAuth { id, password } = verify_header(auth)?;
 
     Ok(Json(
-        entity::get_player(&state.conn, id, password)
-            .await?
-            .ok_or(ApiError::AuthError(id))?,
+        entity::get_exact_player(&state.conn, id, password).await?,
     ))
 }
 
@@ -100,14 +97,10 @@ pub async fn list_guest(
     AuthBasic(auth): AuthBasic,
 ) -> Result<Json<Vec<Guest>>, ApiError> {
     let PlayerAuth { id, password } = verify_header(auth)?;
-
-    Ok(Json(
-        entity::get_player(&state.conn, id, password)
-            .await?
-            .ok_or(ApiError::AuthError(id))?
-            .list_guest(&state.conn)
-            .await?,
-    ))
+    let txn = begin_txn(&state.conn).await?;
+    let gs = entity::list_guest(&txn, id, password).await?;
+    txn.commit().await?;
+    Ok(Json(gs))
 }
 
 #[instrument(skip(state, auth), ret, err(level = Level::INFO))]
@@ -116,12 +109,10 @@ pub async fn spawn_guest(
     AuthBasic(auth): AuthBasic,
 ) -> Result<Json<Guest>, ApiError> {
     let PlayerAuth { id, password } = verify_header(auth)?;
-
     let txn = begin_txn(&state.conn).await?;
-    let p = entity::get_exact_player(&txn, id, password).await?;
-    let rtn = p.spawn_guest(&txn).await?;
+    let g = entity::spawn_guest(&txn, id, password).await?;
     txn.commit().await?;
-    Ok(Json(rtn))
+    Ok(Json(g))
 }
 
 #[instrument(skip(state), ret, err(level = Level::INFO))]
@@ -141,9 +132,9 @@ pub async fn get_node_bytes(
     Path((x, y)): Path<(i16, i16)>,
 ) -> Result<Bytes, ApiError> {
     let txn = begin_txn(&state.conn).await?;
-    let rtn = entity::get_node(&txn, NodeID::from_xy(x, y)).await?;
+    let n = entity::get_node(&txn, NodeID::from_xy(x, y)).await?;
     txn.commit().await?;
-    Ok(Bytes::from(rtn.data))
+    Ok(Bytes::from(n.data))
 }
 
 #[instrument(skip(state, auth), ret, err(level = Level::INFO))]
@@ -153,10 +144,8 @@ pub async fn get_guest(
     AuthBasic(auth): AuthBasic,
 ) -> Result<Json<Guest>, ApiError> {
     let PlayerAuth { id, password } = verify_header(auth)?;
-
     let txn = begin_txn(&state.conn).await?;
-    let p = entity::get_exact_player(&txn, id, password).await?;
-    let g = p.get_guest(&txn, gid).await?;
+    let g = entity::get_guest(&txn, id, password, gid).await?;
     txn.commit().await?;
     Ok(Json(g))
 }
@@ -173,23 +162,12 @@ pub async fn walk(
     let PlayerAuth { id, password } = verify_header(auth)?;
 
     // transaction
-
-    // get guest
     let txn = begin_txn(&state.conn).await?;
-    let p = entity::get_exact_player(&txn, id, password).await?;
-    let g = p.get_guest(&txn, gid).await?;
-
-    // walk guest
-    let g_next = g.walk_free(&txn, cmd.to).await?;
-
-    // exhaust wasted heat
-    let n = entity::get_node(&txn, NodeID::from_i32(g.pos)).await?;
-    let _n = n._walk_exhaust(&txn).await?;
-
+    let g = entity::walk(&txn, id, password, gid, cmd.to).await?;
     txn.commit().await?;
 
     //return
-    Ok(Json(g_next))
+    Ok(Json(g))
 }
 
 #[instrument(skip(state, auth), ret, err(level = Level::INFO))]
@@ -204,20 +182,10 @@ pub async fn harvest(
 
     // transaction
     let txn = begin_txn(&state.conn).await?;
-    let p = entity::get_exact_player(&txn, id, password).await?;
-    let g = p.get_guest(&txn, gid).await?;
-    let pos = FlatID::from(g.pos);
-    let n = entity::get_node(&txn, pos.into()).await?;
-
-    let node: Node = Node::from_model(n);
-    let (g, n) = g
-        ._generate_active_model(node, cmd.at)
-        .map_err(|e| ApiError::Operation(OperationError::Model(e)))?;
-    let g = g.update(&txn).await?;
-    n.update(&txn).await?;
-
+    let g = entity::harvest(&txn, id, password, gid, cmd.at).await?;
     txn.commit().await?;
 
+    // return
     Ok(Json(g))
 }
 
@@ -233,30 +201,10 @@ pub async fn arrange(
 
     // transaction
     let txn = begin_txn(&state.conn).await?;
-    let p = entity::get_exact_player(&txn, id, password).await?;
-    let g = p.get_guest(&txn, gid).await?;
-
-    // consume energy
-    let g_count = p.count_guest(&txn).await?;
-    if g_count >= u32::MAX as u64 {
-        return Err(OperationError::Model(ModelError::OutOfLimit {
-            desc: format!("owned guest number"),
-            limit_type: "u32",
-        })
-        .into());
-    };
-    let g_count = g_count.try_into().map_err(|_| {
-        OperationError::Model(ModelError::OutOfLimit {
-            desc: format!("owned guest number"),
-            limit_type: "u32",
-        })
-    })?;
-    let consume_energy = 2i64.pow(g_count);
-    let g = g.consume_energy(&txn, consume_energy).await?;
-    let new_g = g.arrange_free(&txn, cmd.transfer_energy).await?;
-
+    let new_g = entity::arrange(&txn, id, password, gid, cmd.transfer_energy).await?;
     txn.commit().await?;
 
+    // return
     Ok(Json(new_g))
 }
 
@@ -271,12 +219,10 @@ pub async fn detect(
 
     // transaction
     let txn = begin_txn(&state.conn).await?;
-    let p = entity::get_exact_player(&txn, id, password).await?;
-    let g = p.get_guest(&txn, gid).await?;
-    let gs = g.detect(&txn).await?;
+    let gs = entity::detect(&txn, id, password, gid).await?;
+    txn.commit().await?;
 
     // return
-    txn.commit().await?;
     Ok(Json(gs))
 }
 
@@ -292,14 +238,10 @@ pub async fn heat(
 
     // transaction
     let txn = begin_txn(&state.conn).await?;
-    let p = entity::get_exact_player(&txn, id, password).await?;
-    let g = p.get_guest(&txn, gid).await?;
-    let n = entity::get_node(&txn, NodeID::from_i32(g.pos)).await?;
-    n._heat(&txn, cmd.at, cmd.energy).await?;
-    let g = g.consume_energy(&txn, cmd.energy).await?;
-
+    let g = entity::heat(&txn, id, password, gid, cmd.at, cmd.energy).await?;
     txn.commit().await?;
 
+    // return
     Ok(Json(g))
 }
 

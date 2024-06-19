@@ -24,7 +24,7 @@ pub enum OperationError {
     EnergyNotEnough { require: i64, reserve: i64 },
     #[error("player already has guest <- only player with no guest can spawn free guest")]
     AlreadyHasGuest,
-    #[error("player not exist <- request player id:{0}")]
+    #[error("player not exist or check your password <- request player id:{0}")]
     PlayerNotExist(i32),
     #[error("guest not exist <- request guest id:{0}")]
     GuestNotExist(i32),
