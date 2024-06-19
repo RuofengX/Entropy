@@ -1,3 +1,4 @@
+use rand::{seq::IteratorRandom, thread_rng};
 use sea_orm::{entity::prelude::*, sea_query::OnConflict, DatabaseTransaction, Set};
 use serde::{Deserialize, Serialize};
 
@@ -69,9 +70,10 @@ impl Model {
         db: &C,
     ) -> Result<Model, OperationError> {
         // 循环直到找到一个非 u8::MAX 的字节
-        for b in self.data.iter_mut() {
-            if *b < u8::MAX {
-                *b += 1;
+        let mut rng = thread_rng();
+        while let Some(cell) = self.data.iter_mut().choose(&mut rng) {
+            if *cell < u8::MAX {
+                *cell += 1;
                 let n = ActiveModel {
                     id: Set(self.id),
                     data: Set(self.data),
