@@ -30,6 +30,36 @@ pub struct PlayerRegister {
     password: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct WalkCommand {
+    to: navi::Direction,
+}
+impl WalkCommand {
+    pub fn verify(&self) -> Result<(), OperationError> {
+        if ALLOWED_NAVI.contains(&self.to) {
+            Ok(())
+        } else {
+            Err(OperationError::DirectionNotAllowed(self.to))
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HeatCommand {
+    pub at: usize,
+    pub energy: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HarvestCommand {
+    pub at: usize,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ArrangeCommand {
+    pub transfer_energy: i64,
+}
+
 #[instrument(skip(state), ret, err(level = Level::INFO))]
 pub async fn get_player_public(
     State(state): State<AppState>,
@@ -131,20 +161,6 @@ pub async fn get_guest(
     Ok(Json(g))
 }
 
-#[derive(Debug, Deserialize)]
-pub struct WalkCommand {
-    to: navi::Direction,
-}
-impl WalkCommand {
-    pub fn verify(&self) -> Result<(), OperationError> {
-        if ALLOWED_NAVI.contains(&self.to) {
-            Ok(())
-        } else {
-            Err(OperationError::DirectionNotAllowed(self.to))
-        }
-    }
-}
-
 #[instrument(skip(state, auth), ret, err(level = Level::INFO))]
 pub async fn walk(
     State(state): State<AppState>,
@@ -176,11 +192,6 @@ pub async fn walk(
     Ok(Json(g_next))
 }
 
-#[derive(Debug, Deserialize)]
-pub struct HarvestCommand {
-    pub at: usize,
-}
-
 #[instrument(skip(state, auth), ret, err(level = Level::INFO))]
 pub async fn harvest(
     State(state): State<AppState>,
@@ -208,11 +219,6 @@ pub async fn harvest(
     txn.commit().await?;
 
     Ok(Json(g))
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ArrangeCommand {
-    pub transfer_energy: i64,
 }
 
 #[instrument(skip(state, auth), ret, err(level = Level::INFO))]
@@ -272,12 +278,6 @@ pub async fn detect(
     // return
     txn.commit().await?;
     Ok(Json(gs))
-}
-
-#[derive(Debug, Deserialize)]
-pub struct HeatCommand {
-    pub at: usize,
-    pub energy: i64,
 }
 
 #[instrument(skip(state, auth), ret, err(level = Level::INFO))]
