@@ -7,11 +7,17 @@ use axum::{
 use sea_orm::DbConn;
 use tracing::{instrument, warn};
 
-use crate::err::{ApiError, RuntimeError};
+use crate::{
+    config,
+    err::{ApiError, RuntimeError},
+};
 pub mod handler;
 
 #[instrument(skip(db))]
-pub async fn http_daemon(address: String, db: &DbConn) -> Result<(), RuntimeError> {
+pub async fn http_daemon(
+    config::Http { address, port }: config::Http,
+    db: &DbConn,
+) -> Result<(), RuntimeError> {
     let state = AppState { conn: db.clone() };
 
     let router = Router::new()

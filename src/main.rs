@@ -50,7 +50,7 @@ async fn main() -> Result<(), RuntimeError> {
         db
     };
 
-    api::http::http_daemon(format!("{}:{}", config.address, config.port,), &db).await?;
+    api::http::http_daemon(config.http, &db).await?;
     Ok(())
 }
 
