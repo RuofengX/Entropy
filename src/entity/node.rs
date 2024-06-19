@@ -1,4 +1,4 @@
-use rand::{seq::IteratorRandom, thread_rng};
+use rand::{rngs::SmallRng, seq::IteratorRandom, SeedableRng};
 use sea_orm::{entity::prelude::*, sea_query::OnConflict, DatabaseTransaction, Set};
 use serde::{Deserialize, Serialize};
 
@@ -70,16 +70,17 @@ impl Model {
         db: &C,
     ) -> Result<Model, OperationError> {
         // 循环直到找到一个非 u8::MAX 的字节
-        let mut rng = thread_rng();
-        while let Some(cell) = self.data.iter_mut().choose(&mut rng) {
+        let mut rng = SmallRng::from_entropy();
+
+        while let Some((i, cell)) = self.data.iter().enumerate().choose(&mut rng) {
             if *cell < u8::MAX {
-                *cell += 1;
+                // 一旦条件满足则直接返回，不涉及下一次循环，所以这里不会再进行借用检查
+                self.data[i] += 1;
                 let n = ActiveModel {
                     id: Set(self.id),
                     data: Set(self.data),
                 };
-                let n = n.update(db).await?;
-                return Ok(n);
+                return Ok(n.update(db).await?);
             }
         }
         Err(OperationError::NodeTemperatureTooHigh(NodeID::from_i32(
