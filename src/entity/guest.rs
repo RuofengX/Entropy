@@ -101,7 +101,7 @@ impl Model {
         Ok(g.insert(db).await?)
     }
 
-    pub async fn walk<C: ConnectionTrait>(
+    pub async fn walk_free<C: ConnectionTrait>(
         &self,
         db: &C,
         to: navi::Direction,

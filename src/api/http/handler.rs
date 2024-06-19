@@ -2,7 +2,10 @@ use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::Json;
 use axum_auth::AuthBasic;
-use sea_orm::{ActiveModelTrait, TransactionTrait};
+use sea_orm::{
+    AccessMode, ActiveModelTrait, DatabaseConnection, DatabaseTransaction, DbErr, IsolationLevel,
+    TransactionTrait,
+};
 use serde::Deserialize;
 use tracing::{instrument, Level};
 
@@ -84,7 +87,7 @@ pub async fn spawn_guest(
 ) -> Result<Json<Guest>, ApiError> {
     let PlayerAuth { id, password } = verify_header(auth)?;
 
-    let txn = state.conn.begin().await?;
+    let txn = begin_txn(&state.conn).await?;
     let p = entity::get_exact_player(&txn, id, password).await?;
     let rtn = p.spawn_guest(&txn).await?;
     txn.commit().await?;
@@ -96,7 +99,7 @@ pub async fn get_node(
     State(state): State<AppState>,
     Path((x, y)): Path<(i16, i16)>,
 ) -> Result<Json<grid::Node>, ApiError> {
-    let txn = state.conn.begin().await?;
+    let txn = begin_txn(&state.conn).await?;
     let n = entity::get_node(&txn, NodeID::from_xy(x, y)).await?;
     txn.commit().await?;
     Ok(Json(grid::Node::from(n)))
@@ -107,7 +110,7 @@ pub async fn get_node_bytes(
     State(state): State<AppState>,
     Path((x, y)): Path<(i16, i16)>,
 ) -> Result<Bytes, ApiError> {
-    let txn = state.conn.begin().await?;
+    let txn = begin_txn(&state.conn).await?;
     let rtn = entity::get_node(&txn, NodeID::from_xy(x, y)).await?;
     txn.commit().await?;
     Ok(Bytes::from(rtn.data))
@@ -121,7 +124,7 @@ pub async fn get_guest(
 ) -> Result<Json<Guest>, ApiError> {
     let PlayerAuth { id, password } = verify_header(auth)?;
 
-    let txn = state.conn.begin().await?;
+    let txn = begin_txn(&state.conn).await?;
     let p = entity::get_exact_player(&txn, id, password).await?;
     let g = p.get_guest(&txn, gid).await?;
     txn.commit().await?;
@@ -156,17 +159,16 @@ pub async fn walk(
     // transaction
 
     // get guest
-    let txn = state.conn.begin().await?;
+    let txn = begin_txn(&state.conn).await?;
     let p = entity::get_exact_player(&txn, id, password).await?;
     let g = p.get_guest(&txn, gid).await?;
 
     // walk guest
-    let g_next = g.walk(&txn, cmd.to).await?;
+    let g_next = g.walk_free(&txn, cmd.to).await?;
 
     // exhaust wasted heat
     let n = entity::get_node(&txn, NodeID::from_i32(g.pos)).await?;
     let _n = n._walk_exhaust(&txn).await?;
-
 
     txn.commit().await?;
 
@@ -190,7 +192,7 @@ pub async fn harvest(
     let PlayerAuth { id, password } = verify_header(auth)?;
 
     // transaction
-    let txn = state.conn.begin().await?;
+    let txn = begin_txn(&state.conn).await?;
     let p = entity::get_exact_player(&txn, id, password).await?;
     let g = p.get_guest(&txn, gid).await?;
     let pos = FlatID::from(g.pos);
@@ -224,7 +226,7 @@ pub async fn arrange(
     let PlayerAuth { id, password } = verify_header(auth)?;
 
     // transaction
-    let txn = state.conn.begin().await?;
+    let txn = begin_txn(&state.conn).await?;
     let p = entity::get_exact_player(&txn, id, password).await?;
     let g = p.get_guest(&txn, gid).await?;
 
@@ -262,7 +264,7 @@ pub async fn detect(
     let PlayerAuth { id, password } = verify_header(auth)?;
 
     // transaction
-    let txn = state.conn.begin().await?;
+    let txn = begin_txn(&state.conn).await?;
     let p = entity::get_exact_player(&txn, id, password).await?;
     let g = p.get_guest(&txn, gid).await?;
     let gs = g.detect(&txn).await?;
@@ -289,7 +291,7 @@ pub async fn heat(
     let PlayerAuth { id, password } = verify_header(auth)?;
 
     // transaction
-    let txn = state.conn.begin().await?;
+    let txn = begin_txn(&state.conn).await?;
     let p = entity::get_exact_player(&txn, id, password).await?;
     let g = p.get_guest(&txn, gid).await?;
     let n = entity::get_node(&txn, NodeID::from_i32(g.pos)).await?;
@@ -309,4 +311,12 @@ fn verify_header(auth: (String, Option<String>)) -> Result<PlayerAuth, ApiError>
     } else {
         Err(ApiError::AuthHeader)
     }
+}
+
+async fn begin_txn(db: &DatabaseConnection) -> Result<DatabaseTransaction, DbErr> {
+    db.begin_with_config(
+        Some(IsolationLevel::RepeatableRead), // set isolate level
+        Some(AccessMode::ReadWrite),
+    )
+    .await
 }
