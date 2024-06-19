@@ -1,6 +1,6 @@
 use std::fmt;
 
-use rand::{thread_rng, Rng, RngCore};
+use rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
 use sea_orm::DeriveValueType;
 use serde::{de, ser::SerializeTupleStruct, Deserialize, Serialize, Serializer};
 
@@ -104,7 +104,7 @@ impl Into<(i16, i16)> for NodeID {
 pub struct NodeData(Vec<i8>);
 impl NodeData {
     pub fn random() -> Self {
-        let mut rng = thread_rng();
+        let mut rng = SmallRng::from_entropy();
         let length = rng.gen_range(0..NODE_MAX_SIZE);
         let mut rtn = vec![0u8; length];
         rng.fill_bytes(&mut rtn);
