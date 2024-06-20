@@ -1,5 +1,5 @@
-use axum::body::Bytes;
 use axum::extract::{Path, State};
+use axum::response::IntoResponse;
 use axum::Json;
 use axum_auth::AuthBasic;
 use sea_orm::{
@@ -8,6 +8,7 @@ use sea_orm::{
 use serde::Deserialize;
 use tracing::{instrument, Level};
 
+use crate::api::{MsgPak, NoDownload};
 use crate::entity::variant::{DetectedGuest, PublicPlayer};
 use crate::err::{ApiError, OperationError};
 use crate::grid::{navi, NodeID, ALLOWED_NAVI};
@@ -130,11 +131,22 @@ pub async fn get_node(
 pub async fn get_node_bytes(
     State(state): State<AppState>,
     Path((x, y)): Path<(i16, i16)>,
-) -> Result<Bytes, ApiError> {
+) -> Result<Vec<u8>, ApiError> {
     let txn = begin_txn(&state.conn).await?;
     let n = entity::get_node(&txn, NodeID::from_xy(x, y)).await?;
     txn.commit().await?;
-    Ok(Bytes::from(n.data))
+    Ok(n.data)
+}
+
+#[instrument(skip(state), err(level = Level::INFO))]
+pub async fn get_node_msgpak(
+    State(state): State<AppState>,
+    Path((x, y)): Path<(i16, i16)>,
+) -> Result<impl IntoResponse, ApiError> {
+    let txn = begin_txn(&state.conn).await?;
+    let n = entity::get_node(&txn, NodeID::from_xy(x, y)).await?;
+    txn.commit().await?;
+    Ok(MsgPak(n.data))
 }
 
 #[instrument(skip(state, auth), ret, err(level = Level::INFO))]

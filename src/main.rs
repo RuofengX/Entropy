@@ -54,9 +54,9 @@ async fn main() -> Result<(), RuntimeError> {
     if config.http.enable{
         api::http::http_daemon(config.http, &db).await?;
     };
-    if config.socket.enable{
-        api::zmq::socket_daemon(config.socket, &db).await?;
-    }
+    // if config.socket.enable{
+        // api::zmq::socket_daemon(config.socket, &db).await?;
+    // };
     Ok(())
 }
 

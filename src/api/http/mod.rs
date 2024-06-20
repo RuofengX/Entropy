@@ -29,6 +29,7 @@ pub async fn http_daemon(
         .route("/player/guest/spawn", get(handler::spawn_guest))
         .route("/node/:x/:y", get(handler::get_node))
         .route("/node/bytes/:x/:y", get(handler::get_node_bytes))
+        .route("/node/msgpak/:x/:y", get(handler::get_node_msgpak))
         .route("/guest/:id", get(handler::get_guest))
         .route("/guest/walk/:id", post(handler::walk))
         .route("/guest/harvest/:id", post(handler::harvest))
