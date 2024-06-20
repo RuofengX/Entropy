@@ -73,8 +73,8 @@ impl ActiveModelBehavior for ActiveModel {
 }
 
 pub fn get_carnot_efficiency(one: i8, other: i8) -> f32 {
-    let one = one as i16 - i8::MIN as i16;
-    let other = other as i16 - i8::MIN as i16;
+    let one = get_kelvin(one);
+    let other = get_kelvin(other);
     let one = unsafe { NotNan::new_unchecked(one as f32) };
     let other = unsafe { NotNan::new_unchecked(other as f32) };
     let (h, c) = if one > other {
@@ -83,6 +83,14 @@ pub fn get_carnot_efficiency(one: i8, other: i8) -> f32 {
         (*other, *one)
     };
     1f32 - c / h
+}
+
+fn get_kelvin(value: i8) -> u8 {
+    if value < 0 {
+        (value - i8::MIN) as u8
+    } else {
+        value as u8 + 128u8
+    }
 }
 
 impl Model {
@@ -141,7 +149,10 @@ impl Model {
         Ok(to)
     }
 
-    pub async fn detect<C: ConnectionTrait>(&self, db: &C) -> Result<Vec<DetectedGuest>, OperationError> {
+    pub async fn detect<C: ConnectionTrait>(
+        &self,
+        db: &C,
+    ) -> Result<Vec<DetectedGuest>, OperationError> {
         let gs = Entity::find()
             .filter(
                 Condition::all()

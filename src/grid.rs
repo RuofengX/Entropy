@@ -20,11 +20,6 @@ pub mod navi {
     pub const DOWN: (i16, i16) = (0, -1);
     pub const LEFT: (i16, i16) = (-1, 0);
     pub const RIGHT: (i16, i16) = (1, 0);
-
-    pub const UP_LEFT: (i16, i16) = (-1, 1);
-    pub const UP_RIGHT: (i16, i16) = (1, 1);
-    pub const DOWN_LEFT: (i16, i16) = (-1, -1);
-    pub const DOWN_RIGHT: (i16, i16) = (1, -1);
 }
 
 /// y
