@@ -115,7 +115,7 @@ pub async fn spawn_guest(
     Ok(Json(g))
 }
 
-#[instrument(skip(state), ret, err(level = Level::INFO))]
+#[instrument(skip(state), err(level = Level::INFO))]
 pub async fn get_node(
     State(state): State<AppState>,
     Path((x, y)): Path<(i16, i16)>,
@@ -126,7 +126,7 @@ pub async fn get_node(
     Ok(Json(grid::Node::from(n)))
 }
 
-#[instrument(skip(state), ret, err(level = Level::INFO))]
+#[instrument(skip(state), err(level = Level::INFO))]
 pub async fn get_node_bytes(
     State(state): State<AppState>,
     Path((x, y)): Path<(i16, i16)>,

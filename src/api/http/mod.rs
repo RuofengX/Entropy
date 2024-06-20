@@ -5,6 +5,7 @@ use axum::{
     Router,
 };
 use sea_orm::DbConn;
+use tower_http::compression::CompressionLayer;
 use tracing::{instrument, warn};
 
 use crate::{
@@ -15,7 +16,7 @@ pub mod handler;
 
 #[instrument(skip(db))]
 pub async fn http_daemon(
-    config::Http { address, port, ..}: config::Http,
+    config::Http { address, port, .. }: config::Http,
     db: &DbConn,
 ) -> Result<(), RuntimeError> {
     let state = AppState { conn: db.clone() };
@@ -34,10 +35,13 @@ pub async fn http_daemon(
         .route("/guest/arrange/:id", post(handler::arrange))
         .route("/guest/detect/:id", get(handler::detect))
         .route("/guest/heat/:id", post(handler::heat))
+        .layer(CompressionLayer::new())
         .with_state(state);
 
     warn!("http server listening at {address}:{port}");
-    let listener = tokio::net::TcpListener::bind((address, port)).await.unwrap();
+    let listener = tokio::net::TcpListener::bind((address, port))
+        .await
+        .unwrap();
 
     Ok(axum::serve(listener, router)
         .with_graceful_shutdown(async {

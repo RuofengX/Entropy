@@ -35,6 +35,7 @@ serde_bytes = "0.11.14"
 thiserror = "1.0.61"
 tokio = { version = "1.38.0", features = ["full"] }
 toml = { version = "0.8.14", features = ["parse"] }
+tower-http = { version = "0.5.2", features = ["compression-full"] }
 tracing = { version = "0.1.40", default-features = false, features = [
     "attributes",
     "max_level_debug",

@@ -6,7 +6,7 @@ use serde::{de, ser::SerializeTupleStruct, Deserialize, Serialize, Serializer};
 
 use crate::entity::node;
 
-pub const NODE_MAX_SIZE: usize = 1024;
+pub const NODE_MAX_SIZE: usize = 16 * 1024; // 16KiB
 
 ///         ^UP
 ///         |
