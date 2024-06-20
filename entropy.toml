@@ -1,5 +1,11 @@
 db = "postgres://postgres:123456@localhost:5432/entropy"
 
 [http]
+enable = true
 address = '0.0.0.0'
 port = 3333
+
+[socket]
+enable = false
+address = '0.0.0.0'
+port = 3334

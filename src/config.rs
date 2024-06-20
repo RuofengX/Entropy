@@ -9,6 +9,7 @@ use crate::err::RuntimeError;
 pub struct Root {
     pub db: String,
     pub http: Http,
+    pub socket: Socket,
 }
 
 pub async fn read_from_file(path: PathBuf) -> Result<Root, RuntimeError> {
@@ -22,6 +23,14 @@ pub async fn read_from_file(path: PathBuf) -> Result<Root, RuntimeError> {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Http {
+    pub enable: bool,
+    pub address: String,
+    pub port: u16,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Socket{
+    pub enable: bool,
     pub address: String,
     pub port: u16,
 }

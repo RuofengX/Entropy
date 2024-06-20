@@ -15,7 +15,7 @@ pub mod handler;
 
 #[instrument(skip(db))]
 pub async fn http_daemon(
-    config::Http { address, port }: config::Http,
+    config::Http { address, port, ..}: config::Http,
     db: &DbConn,
 ) -> Result<(), RuntimeError> {
     let state = AppState { conn: db.clone() };
