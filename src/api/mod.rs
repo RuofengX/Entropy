@@ -22,6 +22,7 @@ impl<T: IntoResponse> IntoResponse for NoDownload<T> {
             .into_response()
     }
 }
+
 pub struct MsgPak<T>(T);
 impl<T: IntoResponse + Serialize> IntoResponse for MsgPak<T> {
     fn into_response(self) -> axum::response::Response {
@@ -37,5 +38,22 @@ impl<T: IntoResponse + Serialize> IntoResponse for MsgPak<T> {
             HeaderValue::from_static("application/vnd.messagepack"),
         );
         resp
+    }
+}
+
+pub struct Attachment<T> {
+    pub raw: T,
+    pub file_name: String,
+}
+impl<T: IntoResponse> IntoResponse for Attachment<T> {
+    fn into_response(self) -> axum::response::Response {
+        (
+            AppendHeaders([(
+                CONTENT_DISPOSITION,
+                format!("attachment; filename=\"{0}\"", self.file_name),
+            )]),
+            self.raw,
+        )
+            .into_response()
     }
 }

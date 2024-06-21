@@ -8,7 +8,7 @@ use sea_orm::{
 use serde::Deserialize;
 use tracing::{instrument, Level};
 
-use crate::api::{MsgPak, NoDownload};
+use crate::api::{Attachment, MsgPak};
 use crate::entity::variant::{DetectedGuest, PublicPlayer};
 use crate::err::{ApiError, OperationError};
 use crate::grid::{navi, NodeID, ALLOWED_NAVI};
@@ -131,11 +131,14 @@ pub async fn get_node(
 pub async fn get_node_bytes(
     State(state): State<AppState>,
     Path((x, y)): Path<(i16, i16)>,
-) -> Result<Vec<u8>, ApiError> {
+) -> Result<Attachment<Vec<u8>>, ApiError> {
     let txn = begin_txn(&state.conn).await?;
     let n = entity::get_node(&txn, NodeID::from_xy(x, y)).await?;
     txn.commit().await?;
-    Ok(n.data)
+    Ok(Attachment {
+        raw: n.data,
+        file_name: format!("{x}-{y}.bin"),
+    })
 }
 
 #[instrument(skip(state), err(level = Level::INFO))]
@@ -146,7 +149,10 @@ pub async fn get_node_msgpak(
     let txn = begin_txn(&state.conn).await?;
     let n = entity::get_node(&txn, NodeID::from_xy(x, y)).await?;
     txn.commit().await?;
-    Ok(MsgPak(n.data))
+    Ok(Attachment {
+        raw: MsgPak(n.data),
+        file_name: format!("{x}-{y}.msgpak"),
+    })
 }
 
 #[instrument(skip(state, auth), ret, err(level = Level::INFO))]
