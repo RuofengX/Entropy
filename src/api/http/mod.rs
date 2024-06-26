@@ -22,6 +22,7 @@ pub async fn http_daemon(
     let state = AppState { conn: db.clone() };
 
     let router = Router::new()
+        .route("/", get(handler::ping))
         .route("/player/:id", get(handler::get_player_public))
         .route("/player/register", post(handler::register))
         .route("/player/verify", get(handler::verify_player))

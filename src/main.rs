@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use err::RuntimeError;
 use sea_orm::{ConnectOptions, Database};
-use tracing::{info, info_span, warn, Level};
+use tracing::{info_span, warn, Level};
 use url::Url;
 
 #[tokio::main]

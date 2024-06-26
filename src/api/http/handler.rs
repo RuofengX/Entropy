@@ -60,6 +60,12 @@ pub struct ArrangeCommand {
     pub transfer_energy: i64,
 }
 
+#[instrument(skip(state, ), err(level = Level::INFO))]
+pub async fn ping(State(state): State<AppState>) -> Result<&'static str, ApiError> {
+    state.conn.ping().await?;
+    Ok("pong")
+}
+
 #[instrument(skip(state), ret, err(level = Level::INFO))]
 pub async fn get_player_public(
     State(state): State<AppState>,
