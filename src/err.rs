@@ -1,3 +1,4 @@
+use pg_embed::pg_errors::PgEmbedError;
 use sea_orm::DbErr;
 use thiserror::Error;
 
@@ -39,10 +40,7 @@ pub enum OperationError {
         max: usize,
     },
     #[error("cannot exhaust heat <- index:{index}@node:{node:?}")]
-    CellTemperatureTooHigh{
-        node: NodeID,
-        index: usize,
-    },
+    CellTemperatureTooHigh { node: NodeID, index: usize },
 }
 
 impl From<DbErr> for OperationError {
@@ -79,4 +77,6 @@ pub enum RuntimeError {
     Config(#[from] toml::de::Error),
     #[error(transparent)]
     UrlParse(#[from] url::ParseError),
+    #[error(transparent)]
+    PgEmbed(#[from] PgEmbedError),
 }

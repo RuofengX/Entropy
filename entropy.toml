@@ -1,4 +1,15 @@
-db = "postgres://postgres:123456@localhost:5432/entropy"
+# Setting that runs an game database on local machine.
+[db.embed]
+enable = true                 # set this option to true to override `db.remote`
+dir = "data/db"
+port = 5432
+user = "entropy"
+password = "this_is_password"
+persistent = true
+timeout = 15                  # in second
+
+[db.remote]
+url = "postgres://postgres:123456@localhost:5432/entropy" # the fallback option, if embed is disable
 
 [http]
 enable = true

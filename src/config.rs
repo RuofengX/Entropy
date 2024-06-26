@@ -5,20 +5,32 @@ use tokio::{fs::File, io::AsyncReadExt};
 
 use crate::err::RuntimeError;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct Root {
-    pub db: String,
+    pub db: Db,
     pub http: Http,
-    pub socket: Socket,
+    // pub socket: Socket,
 }
 
-pub async fn read_from_file(path: PathBuf) -> Result<Root, RuntimeError> {
-    let mut file = File::open(path).await?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents).await?;
+#[derive(Debug, Deserialize)]
+pub struct Db {
+    pub embed: EmbedDb,
+    pub remote: RemoteDb,
+}
+#[derive(Debug, Deserialize)]
+pub struct EmbedDb {
+    pub enable: bool,
+    pub dir: PathBuf,
+    pub port: u16,
+    pub user: String,
+    pub password: String,
+    pub persistent: bool,
+    pub timeout: u64,
+}
 
-    let config: Root = toml::from_str(&contents)?;
-    Ok(config)
+#[derive(Debug, Deserialize)]
+pub struct RemoteDb {
+    pub url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -29,8 +41,17 @@ pub struct Http {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Socket{
+pub struct Socket {
     pub enable: bool,
     pub address: String,
     pub port: u16,
+}
+
+pub async fn read_from_file(path: PathBuf) -> Result<Root, RuntimeError> {
+    let mut file = File::open(path).await?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).await?;
+
+    let config: Root = toml::from_str(&contents)?;
+    Ok(config)
 }

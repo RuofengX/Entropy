@@ -15,11 +15,13 @@ use crate::{
 pub mod handler;
 
 #[instrument(skip(db))]
-pub async fn http_daemon(
+pub async fn http_daemon<C: AsRef<DbConn>>(
     config::Http { address, port, .. }: config::Http,
-    db: &DbConn,
+    db: C,
 ) -> Result<(), RuntimeError> {
-    let state = AppState { conn: db.clone() };
+    let state = AppState {
+        conn: db.as_ref().clone(),
+    };
 
     let router = Router::new()
         .route("/", get(handler::ping))

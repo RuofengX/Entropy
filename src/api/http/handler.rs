@@ -66,7 +66,7 @@ pub async fn ping(State(state): State<AppState>) -> Result<&'static str, ApiErro
     Ok("pong")
 }
 
-#[instrument(skip(state), ret, err(level = Level::INFO))]
+#[instrument(skip(state), ret(level = Level::DEBUG), err(level = Level::INFO))]
 pub async fn get_player_public(
     State(state): State<AppState>,
     Path(id): Path<i32>,
@@ -76,7 +76,7 @@ pub async fn get_player_public(
     ))
 }
 
-#[instrument(skip(state), ret, err(level = Level::INFO))]
+#[instrument(skip(state), ret(level = Level::DEBUG), err(level = Level::INFO))]
 pub async fn register(
     State(state): State<AppState>,
     Json(PlayerRegister { name, password }): Json<PlayerRegister>,
@@ -86,7 +86,7 @@ pub async fn register(
     ))
 }
 
-#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
+#[instrument(skip(state, auth), ret(level = Level::DEBUG), err(level = Level::INFO))]
 pub async fn verify_player(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
@@ -98,7 +98,7 @@ pub async fn verify_player(
     ))
 }
 
-#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
+#[instrument(skip(state, auth), ret(level = Level::DEBUG), err(level = Level::INFO))]
 pub async fn list_guest(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
@@ -110,7 +110,7 @@ pub async fn list_guest(
     Ok(Json(gs))
 }
 
-#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
+#[instrument(skip(state, auth), ret(level = Level::DEBUG), err(level = Level::INFO))]
 pub async fn spawn_guest(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
@@ -161,7 +161,7 @@ pub async fn get_node_msgpak(
     })
 }
 
-#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
+#[instrument(skip(state, auth), ret(level = Level::DEBUG), err(level = Level::INFO))]
 pub async fn get_guest(
     State(state): State<AppState>,
     Path(gid): Path<i32>,
@@ -174,7 +174,7 @@ pub async fn get_guest(
     Ok(Json(g))
 }
 
-#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
+#[instrument(skip(state, auth), ret(level = Level::DEBUG), err(level = Level::INFO))]
 pub async fn walk(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
@@ -194,7 +194,7 @@ pub async fn walk(
     Ok(Json(g))
 }
 
-#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
+#[instrument(skip(state, auth), ret(level = Level::DEBUG), err(level = Level::INFO))]
 pub async fn harvest(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
@@ -213,7 +213,7 @@ pub async fn harvest(
     Ok(Json(g))
 }
 
-#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
+#[instrument(skip(state, auth), ret(level = Level::DEBUG), err(level = Level::INFO))]
 pub async fn arrange(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
@@ -232,7 +232,7 @@ pub async fn arrange(
     Ok(Json(new_g))
 }
 
-#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
+#[instrument(skip(state, auth), ret(level = Level::DEBUG), err(level = Level::INFO))]
 pub async fn detect(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
@@ -250,7 +250,7 @@ pub async fn detect(
     Ok(Json(gs))
 }
 
-#[instrument(skip(state, auth), ret, err(level = Level::INFO))]
+#[instrument(skip(state, auth), ret(level = Level::DEBUG), err(level = Level::INFO))]
 pub async fn heat(
     State(state): State<AppState>,
     AuthBasic(auth): AuthBasic,
