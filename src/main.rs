@@ -4,7 +4,7 @@ pub mod entity;
 pub mod err;
 pub mod grid;
 
-use std::{path::PathBuf, time::Duration};
+use std::{path::PathBuf, thread, time::Duration};
 
 use clap::Parser;
 use err::RuntimeError;
@@ -77,6 +77,7 @@ async fn prepare_db(config: config::Db) -> Result<DatabaseInstance, RuntimeError
     let mut embed_db: Option<PgEmbed> = None;
     let url = if config.embed.enable {
         let _setup_span = info_span!("setup_embed").entered();
+
         warn!("using embed database");
         let pg_settings = PgSettings {
             database_dir: config.embed.dir,
@@ -94,15 +95,22 @@ async fn prepare_db(config: config::Db) -> Result<DatabaseInstance, RuntimeError
             ..Default::default()
         };
         let mut pg = PgEmbed::new(pg_settings, fetch_settings).await?;
-        info!("downloading postgresql-server");
+
+        info!("downloading");
         pg.setup().await?;
-        info!("starting database");
+
+        info!("starting");
         pg.start_db().await?;
+
         if !pg.database_exists("entropy").await? {
             info!("create database `entropy`");
             pg.create_database("entropy").await?;
         }
+
+        thread::sleep(Duration::from_secs(3));
         let url = pg.full_db_uri("entropy");
+
+        info!("done");
         embed_db = Some(pg);
         url
     } else {
