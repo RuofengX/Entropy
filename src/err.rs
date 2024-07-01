@@ -1,4 +1,4 @@
-use pg_embed::pg_errors::PgEmbedError;
+use pg_embed_alternative::pg_errors::PgEmbedError;
 use sea_orm::DbErr;
 use thiserror::Error;
 

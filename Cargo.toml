@@ -24,7 +24,7 @@ axum = { version = "0.7.5", default-features = false, features = [
 axum-auth = "0.7.0"
 clap = { version = "4.5.7", features = ["derive"] }
 ordered-float = "4.2.0"
-pg-embed = { git = "https://github.com/faokunega/pg-embed.git" }
+pg-embed-alternative = "0.8.0-rc1"
 rand = { version = "0.8.5", features = ["small_rng"] }
 rmp = "0.8.14"
 rmp-serde = "1.3.0"

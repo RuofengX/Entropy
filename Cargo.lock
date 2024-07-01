@@ -144,19 +144,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "archiver-rs"
-version = "0.5.1"
-source = "git+https://github.com/gz/archiver-rs.git?branch=patch-1#a73cef92c2a5b8f48c2a4a9e889952072e03b4b7"
-dependencies = [
- "bzip2",
- "flate2",
- "tar",
- "thiserror",
- "xz2",
- "zip",
-]
-
-[[package]]
 name = "arrayvec"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -806,7 +793,7 @@ dependencies = [
  "clap",
  "entropy-base",
  "ordered-float 4.2.0",
- "pg-embed",
+ "pg-embed-alternative",
  "rand",
  "rmp",
  "rmp-serde",
@@ -1881,11 +1868,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 
 [[package]]
-name = "pg-embed"
-version = "0.7.2"
-source = "git+https://github.com/faokunega/pg-embed.git#72db5e053f0afac6eee51d3baa2fd5c90803e02d"
+name = "pg-embed-alternative"
+version = "0.8.0-rc1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee16c39ad8e845c4719751c9ab8e185b3d54ca1f7065aeb73552f1cccafbe192"
 dependencies = [
- "archiver-rs",
  "async-trait",
  "bytes",
  "dirs 5.0.1",
@@ -1894,8 +1881,10 @@ dependencies = [
  "log",
  "reqwest",
  "sqlx 0.6.3",
+ "tar",
  "thiserror",
  "tokio",
+ "xz2",
  "zip",
 ]
 

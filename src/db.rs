@@ -1,7 +1,7 @@
 
 use std::{thread, time::Duration};
 
-use pg_embed::{
+use pg_embed_alternative::{
     pg_enums::PgAuthMethod,
     pg_fetch::{PgFetchSettings, PG_V13},
     postgres::{PgEmbed, PgSettings},
