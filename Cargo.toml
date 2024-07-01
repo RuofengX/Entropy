@@ -46,3 +46,4 @@ tracing = { version = "0.1.40", default-features = false, features = [
 ] }
 tracing-subscriber = "0.3.18"
 url = "2.5.1"
+entropy-base = "0.1.0"

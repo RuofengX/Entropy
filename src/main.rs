@@ -2,7 +2,6 @@ pub mod api;
 mod config;
 pub mod entity;
 pub mod err;
-pub mod grid;
 
 use std::{path::PathBuf, thread, time::Duration};
 

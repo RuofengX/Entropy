@@ -3,18 +3,16 @@ use sea_orm::{entity::prelude::*, sea_query::OnConflict, DatabaseTransaction, Se
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use crate::{
-    err::{ModelError, OperationError, RuntimeError},
-    grid::{FlatID, NodeData, NodeID},
-};
+use crate::err::{ModelError, OperationError, RuntimeError};
+use entropy_base::grid::{FlatID, Node, NodeData, NodeID};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "node")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     #[serde(
-        serialize_with = "crate::grid::ser_flat",
-        deserialize_with = "crate::grid::de_flat"
+        serialize_with = "entropy_base::grid::ser_flat",
+        deserialize_with = "entropy_base::grid::de_flat"
     )]
     pub id: i32,
     #[serde(with = "serde_bytes")]
@@ -54,8 +52,12 @@ impl Model {
 
     #[instrument(skip(db), err)]
     pub async fn prepare_origin<C: ConnectionTrait>(db: &C) -> Result<(), RuntimeError> {
-        if Entity::find_by_id(NodeID::SITU.into_i32()).count(db).await? == 1{
-            return Ok(())
+        if Entity::find_by_id(NodeID::SITU.into_i32())
+            .count(db)
+            .await?
+            == 1
+        {
+            return Ok(());
         };
 
         let n = ActiveModel {
@@ -137,5 +139,14 @@ impl Model {
             .exec(db)
             .await?;
         Ok(())
+    }
+}
+
+impl Into<Node> for Model {
+    fn into(self) -> Node {
+        Node{
+            id: NodeID::from_i32(self.id),
+            data: NodeData::from_bytes(self.data),
+        }
     }
 }

@@ -2,7 +2,7 @@ use pg_embed::pg_errors::PgEmbedError;
 use sea_orm::DbErr;
 use thiserror::Error;
 
-use crate::grid::{navi, NodeID};
+use entropy_base::grid::{navi, NodeID};
 
 #[derive(Error, Debug)]
 pub enum ModelError {

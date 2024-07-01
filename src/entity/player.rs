@@ -1,4 +1,5 @@
-use crate::{err::OperationError, grid::NodeID};
+use crate::err::OperationError;
+use entropy_base::grid::NodeID;
 
 use super::guest;
 use sea_orm::{entity::prelude::*, QuerySelect};

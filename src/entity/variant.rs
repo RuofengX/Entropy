@@ -14,8 +14,8 @@ pub struct DetectedGuest {
     pub id: i32,
     pub temperature: i16,
     #[serde(
-        serialize_with = "crate::grid::ser_flat",
-        deserialize_with = "crate::grid::de_flat"
+        serialize_with = "entropy_base::grid::ser_flat",
+        deserialize_with = "entropy_base::grid::de_flat"
     )]
     pub pos: i32,
     pub master_id: i32,

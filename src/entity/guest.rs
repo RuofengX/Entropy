@@ -6,10 +6,8 @@ use sea_orm::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    err::{ModelError, OperationError},
-    grid::{navi, FlatID, Node, NodeID},
-};
+use crate::err::{ModelError, OperationError};
+use entropy_base::grid::{navi, FlatID, Node, NodeID};
 
 use super::{node, variant::DetectedGuest};
 
@@ -21,8 +19,8 @@ pub struct Model {
     pub energy: i64,
     #[sea_orm(index)]
     #[serde(
-        serialize_with = "crate::grid::ser_flat",
-        deserialize_with = "crate::grid::de_flat"
+        serialize_with = "entropy_base::grid::ser_flat",
+        deserialize_with = "entropy_base::grid::de_flat"
     )]
     pub pos: i32,
     pub temperature: i16, // should be i8, but sea_orm always error

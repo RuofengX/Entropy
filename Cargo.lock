@@ -804,6 +804,7 @@ dependencies = [
  "axum",
  "axum-auth",
  "clap",
+ "entropy-base",
  "ordered-float 4.2.0",
  "pg-embed",
  "rand",
@@ -819,6 +820,16 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
+]
+
+[[package]]
+name = "entropy-base"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d086f7a423f5f10b77ac077ba064874ba6cc71f620d6b5ac9555e917f2714cba"
+dependencies = [
+ "rand",
+ "serde",
 ]
 
 [[package]]

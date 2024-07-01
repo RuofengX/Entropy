@@ -4,10 +4,8 @@ use sea_orm::{
 };
 use variant::PublicPlayer;
 
-use crate::{
-    err::{ModelError, OperationError},
-    grid::{Node, NodeID},
-};
+use crate::err::{ModelError, OperationError};
+use entropy_base::grid::NodeID;
 
 pub mod guest;
 pub mod node;
@@ -160,7 +158,7 @@ pub async fn harvest(
 
     let n = get_node(&txn, NodeID::from_i32(g.pos)).await?;
     let (g, n) = g
-        ._harvest_active_model(Node::from_model(n), at)
+        ._harvest_active_model(n.into(), at)
         .map_err(|e| OperationError::Model(e))?;
     let g = g.update(txn).await?;
     n.update(txn).await?;

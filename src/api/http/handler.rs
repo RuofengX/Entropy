@@ -9,10 +9,10 @@ use serde::Deserialize;
 use tracing::{instrument, Level};
 
 use crate::api::{Attachment, MsgPak};
+use crate::entity;
 use crate::entity::variant::{DetectedGuest, PublicPlayer};
 use crate::err::{ApiError, OperationError};
-use crate::grid::{navi, NodeID, ALLOWED_NAVI};
-use crate::{entity, grid};
+use entropy_base::grid::{navi, Node, NodeID, ALLOWED_NAVI};
 
 use super::AppState;
 use crate::entity::guest::Model as Guest;
@@ -126,11 +126,11 @@ pub async fn spawn_guest(
 pub async fn get_node(
     State(state): State<AppState>,
     Path((x, y)): Path<(i16, i16)>,
-) -> Result<Json<grid::Node>, ApiError> {
+) -> Result<Json<Node>, ApiError> {
     let txn = begin_txn(&state.conn).await?;
     let n = entity::get_node(&txn, NodeID::from_xy(x, y)).await?;
     txn.commit().await?;
-    Ok(Json(grid::Node::from(n)))
+    Ok(Json(n.into()))
 }
 
 #[instrument(skip(state), err(level = Level::INFO))]
