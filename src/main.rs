@@ -4,13 +4,11 @@ mod db;
 pub mod entity;
 pub mod err;
 
-use std::{path::PathBuf, thread};
+use std::path::PathBuf;
 
 use clap::Parser;
 use err::RuntimeError;
-use sea_orm::{ConnectOptions, Database, DatabaseConnection, DbConn};
-use tracing::{info, info_span, instrument, warn, Level};
-use url::Url;
+use tracing::{info_span, Level};
 
 #[tokio::main]
 async fn main() -> Result<(), RuntimeError> {
